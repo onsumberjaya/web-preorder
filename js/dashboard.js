@@ -2,6 +2,7 @@ let dashOrders = [];
 let dashProducts = [];
 let dashProductsMap = {};
 let allCabangDash = [];
+let dashStatsProdukCabang = null; // { [productId]: { [cabangId]: qty } } -- rekap all-time, lihat js/utils.js:adjustProdukCabangStats
 let chartProduk = null;
 let chartAlamat = null;
 let chartWaktu = null;
@@ -130,6 +131,26 @@ async function loadDashboardData(profile) {
     dashProductsMap = {};
     dashProducts.forEach((p) => (dashProductsMap[p.id] = p));
     allCabangDash = cabangSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Karyawan Cabang: query pesanan di atas SENGAJA dibatasi ke cabangnya
+    // sendiri (lihat komentar di atas), jadi tidak bisa dipakai untuk
+    // menghitung total cabang LAIN di tabel "Detail Total per Produk per
+    // Cabang" di bawah. Buat itu, ambil rekap terpisah yang memang boleh
+    // dibaca semua role (cuma berisi angka jumlah per produk per cabang,
+    // tidak ada nama/HP/alamat pembeli) -- lihat js/utils.js:
+    // adjustProdukCabangStats() untuk cara angka ini dijaga tetap akurat.
+    // Owner/Admin Kasir tidak perlu ini (mereka sudah punya akses penuh ke
+    // "orders" utuh, dan supaya tabelnya tetap ikut filter periode/gelombang
+    // di atas -- rekap ini SELALU sepanjang waktu, tidak ikut filter).
+    if (!canAccessAllBranches(profile)) {
+      try {
+        const statsDoc = await db.collection("stats").doc("produk_cabang").get();
+        dashStatsProdukCabang = statsDoc.exists ? statsDoc.data() : {};
+      } catch (e) {
+        console.warn("Gagal ambil rekap produk_cabang:", e);
+        dashStatsProdukCabang = {};
+      }
+    }
 
     updateGelombangFilterOptionsDash();
     updateCabangFilterOptionsDash(profile);
@@ -300,12 +321,42 @@ function renderDashboard() {
     perAlamat[alamatKey] = (perAlamat[alamatKey] || 0) + orderQty;
   });
 
-  // Kolom cabang di tabel "Detail Total per Produk": semua cabang aktif yang
-  // terdaftar (walau belum ada pesanannya di rentang filter ini, tetap
-  // ditampilkan sebagai kolom 0), plus kolom tambahan "Tanpa Cabang" HANYA
-  // kalau memang ada pesanan lama yang belum dimigrasi ke cabang manapun.
-  const cabangColumns = allCabangDash.filter((c) => c.is_active !== false).map((c) => ({ id: c.id, nama: c.nama }));
-  const adaTanpaCabang = orders.some((o) => !o.cabang_id);
+  // Tabel "Detail Total per Produk per Cabang" dan yang berikut ini pakai
+  // salah satu dari 2 sumber data:
+  // - Owner/Admin Kasir: dihitung dari `orders` yang sudah difilter (ikut
+  //   filter periode/gelombang/produk di atas), sama seperti sebelumnya.
+  // - Karyawan Cabang: query `orders` mereka SENGAJA cuma berisi cabang
+  //   sendiri (lihat loadDashboardData), jadi tidak bisa dipakai menghitung
+  //   total cabang lain. Sumbernya diganti rekap /stats/produk_cabang yang
+  //   memang boleh dibaca semua role (cuma angka, tanpa data pembeli) --
+  //   konsekuensinya: SELALU total sepanjang waktu, TIDAK ikut filter
+  //   periode/gelombang di atas (rekapnya tidak dipecah per tanggal/gelombang).
+  //   Ini dijelaskan lewat catatan kecil di bawah judul tabel.
+  const pakaiRekapAllTime = !canAccessAllBranches(dashProfile);
+  let cabangColumns = allCabangDash.filter((c) => c.is_active !== false).map((c) => ({ id: c.id, nama: c.nama }));
+  let tabelPerProduk = perProduk;
+  let tabelPerProdukPerCabang = perProdukPerCabang;
+
+  if (pakaiRekapAllTime) {
+    tabelPerProduk = {};
+    tabelPerProdukPerCabang = {};
+    const stats = dashStatsProdukCabang || {};
+    Object.keys(stats).forEach((productId) => {
+      const prod = dashProductsMap[productId];
+      const nama = prod ? prod.nama : null;
+      if (!nama) return; // produk sudah dihapus -- lewati, tidak ada nama buat ditampilkan
+      const perCabangProdukIni = stats[productId] || {};
+      tabelPerProdukPerCabang[nama] = {};
+      Object.keys(perCabangProdukIni).forEach((cabangId) => {
+        const qty = Number(perCabangProdukIni[cabangId]) || 0;
+        tabelPerProdukPerCabang[nama][cabangId] = qty;
+        tabelPerProduk[nama] = (tabelPerProduk[nama] || 0) + qty;
+      });
+    });
+  }
+  const adaTanpaCabang = pakaiRekapAllTime
+    ? Object.values(tabelPerProdukPerCabang).some((row) => row["__tanpa_cabang__"])
+    : orders.some((o) => !o.cabang_id);
   if (adaTanpaCabang) cabangColumns.push({ id: "__tanpa_cabang__", nama: "Tanpa Cabang" });
 
   const container = document.getElementById("dashboard-content");
@@ -372,6 +423,11 @@ function renderDashboard() {
 
     <div class="card" style="margin-top:20px;">
       <div class="card-heading" style="margin-bottom:14px;"><span class="card-heading-icon"><i class="ph-bold ph-list-numbers"></i></span><h3>Detail Total per Produk${cabangColumns.length > 1 ? " per Cabang" : ""}</h3></div>
+      ${
+        pakaiRekapAllTime
+          ? `<p style="font-size:12px; color:var(--gray-500); margin:-8px 0 14px;"><i class="ph-bold ph-info"></i> Angka di tabel ini total sepanjang waktu (semua tanggal & gelombang), tidak mengikuti filter periode di atas -- supaya Anda tetap bisa lihat total tiap cabang tanpa perlu membuka detail pesanan cabang lain.</p>`
+          : ""
+      }
       <div class="table-wrap">
         <table class="table">
           <thead>
@@ -383,16 +439,16 @@ function renderDashboard() {
           </thead>
           <tbody>
             ${
-              Object.keys(perProduk).length === 0
+              Object.keys(tabelPerProduk).length === 0
                 ? `<tr><td colspan="${cabangColumns.length + 2}" style="color:var(--gray-400);">Belum ada data.</td></tr>`
-                : Object.keys(perProduk)
-                    .sort((a, b) => perProduk[b] - perProduk[a])
+                : Object.keys(tabelPerProduk)
+                    .sort((a, b) => tabelPerProduk[b] - tabelPerProduk[a])
                     .map(
                       (nama, idx) => `
                     <tr>
                       <td>${escapeHtml(nama)}${idx === 0 ? '<span class="rank-badge"><i class="ph-bold ph-trophy"></i> Terlaris</span>' : ""}</td>
-                      ${cabangColumns.map((c) => `<td style="text-align:center;">${(perProdukPerCabang[nama] && perProdukPerCabang[nama][c.id]) || 0}</td>`).join("")}
-                      <td style="text-align:center; font-weight:700;">${perProduk[nama]}</td>
+                      ${cabangColumns.map((c) => `<td style="text-align:center;">${(tabelPerProdukPerCabang[nama] && tabelPerProdukPerCabang[nama][c.id]) || 0}</td>`).join("")}
+                      <td style="text-align:center; font-weight:700;">${tabelPerProduk[nama]}</td>
                     </tr>`
                     )
                     .join("")
