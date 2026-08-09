@@ -80,10 +80,11 @@
         </div>
 
         <div id="nota-check-tools" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--gray-100);">
-          <p style="font-size:12.5px; color:var(--gray-500); margin:0 0 8px;">Kedua alat ini butuh membaca SELURUH riwayat pesanan (bukan cuma rentang tanggal di atas), jadi dibuat manual -- jalankan sesekali saja, tidak perlu tiap buka halaman ini.</p>
+          <p style="font-size:12.5px; color:var(--gray-500); margin:0 0 8px;">Ketiga alat ini butuh membaca SELURUH riwayat pesanan (bukan cuma rentang tanggal di atas), jadi dibuat manual -- jalankan sesekali saja, tidak perlu tiap buka halaman ini.</p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn-secondary btn-sm" onclick="checkDuplicateNotaNumbers()">Cek Nomor Nota Bentrok (Riwayat Penuh)</button>
             <button class="btn-secondary btn-sm" onclick="checkNamaAlamatFormat()">Cek Nama & Alamat Belum Rapi (Riwayat Penuh)</button>
+            <button class="btn-secondary btn-sm" onclick="rebuildProdukCabangStats()">Hitung Ulang Rekap Produk per Cabang</button>
           </div>
         </div>
       </div>

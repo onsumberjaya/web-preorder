@@ -492,3 +492,54 @@ function exportPdf() {
 
   doc.save(`laporan-pesanan-${todayInputValue()}.pdf`);
 }
+
+// ---------- Alat Lanjutan: Hitung Ulang Rekap Produk per Cabang ----------
+// Rekap /stats/produk_cabang (dipakai Dashboard Karyawan untuk tabel "Detail
+// Total per Produk per Cabang", lihat js/utils.js:adjustProdukCabangStats)
+// hanya ke-update otomatis untuk pesanan yang dibuat/diubah/dihapus SETELAH
+// fitur ini dipasang. Pesanan-pesanan lama yang sudah ada sebelumnya tidak
+// pernah ikut terhitung. Alat ini membaca ULANG seluruh riwayat pesanan dari
+// awal dan menulis ulang total yang benar -- aman dijalankan berkali-kali
+// kapan saja (bukan menambah, tapi mengganti total dengan hitungan yang
+// baru dihitung ulang dari nol).
+async function rebuildProdukCabangStats() {
+  const profile = lapProfile;
+  if (!profile || profile.role !== "owner") return;
+
+  const lanjut = await showConfirmModal(
+    "Ini akan membaca ULANG seluruh riwayat pesanan (bisa makan waktu beberapa detik kalau datanya sudah banyak) lalu menghitung ulang total per produk per cabang dari nol. Aman dijalankan kapan saja, tidak mengubah data pesanan itu sendiri. Lanjutkan?",
+    { okLabel: "Ya, Hitung Ulang" }
+  );
+  if (!lanjut) return;
+
+  showToast("Menghitung ulang dari seluruh riwayat pesanan...", "success");
+  try {
+    const snap = await db.collection("orders").get();
+    const rebuilt = {}; // { [productId]: { [cabangId]: qty } }
+    let totalItemDihitung = 0;
+
+    snap.docs.forEach((d) => {
+      const order = d.data();
+      const cabangKey = order.cabang_id || "__tanpa_cabang__";
+      (order.items || []).forEach((it) => {
+        if (!it.product_id) return;
+        const qty = Number(it.jumlah) || 0;
+        if (!rebuilt[it.product_id]) rebuilt[it.product_id] = {};
+        rebuilt[it.product_id][cabangKey] = (rebuilt[it.product_id][cabangKey] || 0) + qty;
+        totalItemDihitung++;
+      });
+    });
+
+    // Pakai .set() TANPA merge -- ini penghitungan ulang total dari nol,
+    // jadi dokumen rekap lama (kalau ada sisa data yang salah/parsial)
+    // sengaja ditimpa habis, bukan digabung.
+    await db.collection("stats").doc("produk_cabang").set(rebuilt);
+
+    showToast(
+      `Selesai! Rekap dihitung ulang dari ${snap.docs.length} pesanan (${totalItemDihitung} baris produk).`,
+      "success"
+    );
+  } catch (err) {
+    showToast("Gagal menghitung ulang rekap: " + friendlyFirebaseError(err), "error");
+  }
+}
