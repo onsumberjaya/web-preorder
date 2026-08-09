@@ -161,6 +161,19 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
+    // Rekap jumlah produk per cabang (dipakai Dashboard supaya Karyawan
+    // Cabang bisa lihat total lintas cabang TANPA perlu baca detail pesanan
+    // cabang lain). Cuma berisi angka, tidak ada nama/HP/alamat pembeli,
+    // jadi aman dibaca semua role yang login. Ditulis inkremental dari
+    // client (input-pesanan.js/pesanan.js) tiap ada pesanan
+    // dibuat/diubah/dihapus -- BUKAN divalidasi Cloud Function, jadi
+    // integritas angkanya bergantung pada client yang jujur (lihat catatan
+    // di adjustProdukCabangStats() pada utils.js).
+    match /stats/{docId} {
+      allow read: if isSignedIn() && isActiveUser();
+      allow write: if isSignedIn() && isActiveUser();
+    }
+
     // Penomoran otomatis pesanan. Hanya field "seq" (angka) yang boleh
     // ditulis, dan nilainya wajib naik -- mencegah nomor nota/urut dirusak
     // atau dimundurkan (yang bisa menyebabkan nomor nota bentrok/duplikat).
