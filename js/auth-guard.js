@@ -44,6 +44,7 @@ auth.onAuthStateChanged(async (user) => {
 
     if (typeof renderSidebar === "function") renderSidebar(profile);
     if (typeof window.onAuthReady === "function") window.onAuthReady(profile);
+    if (typeof startPresenceTracking === "function") startPresenceTracking(user.uid);
 
     watchSingleSession(user.uid);
   } catch (err) {

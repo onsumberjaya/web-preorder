@@ -1,10 +1,45 @@
 let allUsers = [];
 let allCabangUser = [];
+let presenceData = {}; // { uid: {online, last_active} }, dari Realtime Database -- lihat js/presence.js
 
 window.onAuthReady = function () {
   listenUsers();
   listenCabangForUsers();
+  listenPresence();
 };
+
+// Fitur "Karyawan Online". Kalau databaseURL belum dikonfigurasi (rtdb ===
+// null, lihat js/firebase-config.js), lewati diam-diam -- tabel akun tetap
+// tampil normal, cuma tanpa kolom status online/offline-nya.
+function listenPresence() {
+  if (!rtdb) return;
+  rtdb.ref("presence").on("value", (snap) => {
+    presenceData = snap.val() || {};
+    renderUsers();
+  });
+}
+
+// "Online" kalau flagnya true DAN denyut terakhirnya masih dalam 2 menit
+// terakhir -- bukan cuma flagnya saja. onDisconnect() Firebase memang sudah
+// otomatis membalik flag ini ke false begitu koneksi putus, tapi jaga-jaga
+// kalau ada kondisi aneh (mis. proses browser dibunuh paksa tanpa sempat
+// kirim sinyal apapun), batas waktu ini jadi pengaman kedua.
+function isUserOnline(uid) {
+  const p = presenceData[uid];
+  if (!p || !p.online) return false;
+  return Date.now() - p.last_active < 2 * 60 * 1000;
+}
+
+function formatLastActive(uid) {
+  const p = presenceData[uid];
+  if (!p || !p.last_active) return "Belum pernah online";
+  const diffMin = Math.round((Date.now() - p.last_active) / 60000);
+  if (diffMin < 1) return "Baru saja aktif";
+  if (diffMin < 60) return `${diffMin} menit lalu`;
+  const diffJam = Math.round(diffMin / 60);
+  if (diffJam < 24) return `${diffJam} jam lalu`;
+  return `${Math.round(diffJam / 24)} hari lalu`;
+}
 
 function listenUsers() {
   db.collection("users").orderBy("full_name").onSnapshot(
@@ -67,15 +102,25 @@ function renderUsers() {
     container.innerHTML = `<div class="card empty-state">Belum ada akun.</div>`;
     return;
   }
+  const jumlahOnline = rtdb ? allUsers.filter((u) => isUserOnline(u.id)).length : 0;
   container.innerHTML = `
+    ${
+      rtdb
+        ? `<div class="card" style="padding:12px 16px; margin-bottom:14px; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--gray-600);">
+            <span style="width:8px; height:8px; border-radius:50%; background:var(--brand-500); display:inline-block;"></span>
+            <strong>${jumlahOnline}</strong> dari ${allUsers.length} akun sedang online
+          </div>`
+        : ""
+    }
     <div class="card" style="padding:0;">
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nama</th><th>Username</th><th>Role</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Nama</th><th>Username</th><th>Role</th><th>Status Akun</th>${rtdb ? "<th>Online</th>" : ""}<th></th></tr></thead>
           <tbody>
             ${allUsers
-              .map(
-                (u) => `
+              .map((u) => {
+                const online = isUserOnline(u.id);
+                return `
               <tr>
                 <td>${escapeHtml(u.full_name)}</td>
                 <td>@${escapeHtml(u.username)}</td>
@@ -84,6 +129,16 @@ function renderUsers() {
                   ${u.role === "karyawan" ? `<div style="font-size:11px; color:var(--gray-400); margin-top:2px;">${escapeHtml(cabangNamaUser(u.cabang_id))}</div>` : ""}
                 </td>
                 <td><span class="badge ${u.is_active !== false ? "badge-green" : "badge-red"}">${u.is_active !== false ? "Aktif" : "Nonaktif"}</span></td>
+                ${
+                  rtdb
+                    ? `<td>
+                        <div style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:${online ? "var(--brand-ink)" : "var(--gray-400)"};">
+                          <span style="width:8px; height:8px; border-radius:50%; background:${online ? "var(--brand-500)" : "var(--gray-300)"}; flex-shrink:0;"></span>
+                          ${online ? "Online" : escapeHtml(formatLastActive(u.id))}
+                        </div>
+                      </td>`
+                    : ""
+                }
                 <td style="text-align:right; white-space:nowrap;">
                   <button class="btn-secondary btn-sm" onclick="openEditUserModal('${u.id}')">
                     Edit
@@ -92,8 +147,8 @@ function renderUsers() {
                     ${u.is_active === false ? "Aktifkan" : "Nonaktifkan"}
                   </button>
                 </td>
-              </tr>`
-              )
+              </tr>`;
+              })
               .join("")}
           </tbody>
         </table>
