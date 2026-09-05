@@ -18,7 +18,7 @@ const firebaseConfig = {
   // klik "Create Database" di menu "Realtime Database" (BUKAN "Firestore
   // Database", ini layanan terpisah). Bentuknya mirip:
   // https://NAMA-PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app
-  databaseURL: "Ghttps://manajemen-pesanan-benih-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL: "https://manajemen-pesanan-benih-default-rtdb.asia-southeast1.firebasedatabase.app",
 };
 
 // Domain palsu untuk mengubah "username" jadi format email yang dibutuhkan

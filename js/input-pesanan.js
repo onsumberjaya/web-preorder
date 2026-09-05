@@ -21,17 +21,14 @@ window.onAuthReady = async function (profile) {
   editOrderId = params.get("edit");
 
   if (editOrderId) {
-    // Halaman Edit Pesanan (form lengkap: item/total/nama/alamat) memang
-    // cuma untuk Owner -- Admin Kasir & Karyawan cabang hanya boleh
-    // menyentuh pembayaran/status pengambilan lewat "Detail / Bayar" di
-    // Daftar Pesanan (baik dari sisi Rules maupun tampilan). Dicek di awal
-    // supaya tidak sempat mengisi form lengkap dulu baru gagal pas Simpan.
-    if (!profile || profile.role !== "owner") {
-      showToast("Halaman Edit Pesanan (item/total/data pembeli) khusus untuk Owner.", "error");
-      window.location.href = "pesanan.html";
-      return;
-    }
-
+    // PERBAIKAN: sebelumnya halaman ini (item/total/data pembeli) khusus
+    // Owner -- sekarang Admin Kasir & Karyawan cabang juga boleh, selama
+    // pesanannya ada di cabang yang boleh mereka akses (dijaga otomatis
+    // lewat Firestore Rules: percobaan buka pesanan cabang lain akan gagal
+    // di db.collection("orders").doc(editOrderId).get() di bawah dan masuk
+    // ke blok catch). Hapus pesanan tetap khusus Owner -- lihat pesanan.js
+    // (tombol "Hapus" cuma muncul untuk Owner) & firestore.rules ("allow
+    // delete: if isOwner()", tidak berubah oleh perbaikan ini).
     document.getElementById("page-heading").textContent = "Edit Pesanan";
     try {
       const orderDoc = await db.collection("orders").doc(editOrderId).get();
@@ -606,6 +603,14 @@ async function handleSubmit(e) {
         const newDataForLog = { nama_pembeli: namaPembeli, alamat, no_hp: noHp, catatan, items: itemsData, total };
         const ringkasan = buildEditSummary(freshOrder, newDataForLog);
 
+        // Rekap stats/produk_cabang: sesuaikan selisih qty lama -> baru (bisa
+        // saja Owner ganti produk/jumlah di form Edit Pesanan penuh ini).
+        applyProdukCabangStatsDelta(
+          tx,
+          freshOrder.cabang_id,
+          diffQtyByProduct(aggregateQtyByProduct(freshOrder.items), aggregateQtyByProduct(itemsData))
+        );
+
         tx.update(orderRef, {
           tanggal,
           nama_pembeli: namaPembeli,
@@ -683,6 +688,9 @@ async function handleSubmit(e) {
           created_at: firebase.firestore.FieldValue.serverTimestamp(),
         });
       }
+
+      // Rekap stats/produk_cabang: tambahkan qty pesanan baru ini.
+      applyProdukCabangStatsDelta(tx, cabangIdBaru, aggregateQtyByProduct(itemsData));
     });
 
     showToast("Pesanan berhasil disimpan.", "success");

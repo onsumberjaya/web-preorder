@@ -689,11 +689,24 @@ async function deleteOrder(id) {
 }
 
 async function deleteOrderCascade(id) {
-  const paymentsSnap = await db.collection("orders").doc(id).collection("payments").get();
-  const batch = db.batch();
-  paymentsSnap.docs.forEach((d) => batch.delete(d.ref));
-  batch.delete(db.collection("orders").doc(id));
-  await batch.commit();
+  const orderRef = db.collection("orders").doc(id);
+  // Daftar pembayaran dibaca dulu di luar transaksi (transaksi Firestore
+  // butuh referensi dokumen pasti, bukan query) -- celah race sangat kecil
+  // (pembayaran baru masuk PERSIS di antara baca ini & commit di bawah)
+  // sudah ada sejak awal & belum berubah oleh perbaikan ini.
+  const paymentsSnap = await orderRef.collection("payments").get();
+
+  await db.runTransaction(async (tx) => {
+    const orderDoc = await tx.get(orderRef);
+    if (!orderDoc.exists) return; // sudah terhapus lebih dulu (mis. tab lain)
+    const order = orderDoc.data();
+
+    paymentsSnap.docs.forEach((d) => tx.delete(d.ref));
+    tx.delete(orderRef);
+
+    // Rekap stats/produk_cabang: kurangi qty pesanan yang dihapus ini.
+    applyProdukCabangStatsDelta(tx, order.cabang_id, negateQtyMap(aggregateQtyByProduct(order.items)));
+  });
 }
 
 // ---------- Modal Detail & Cicilan ----------
@@ -813,7 +826,7 @@ function renderDetailModal(order) {
     </div>`
         : `
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-100);">
-      <button class="btn-secondary btn-sm" style="width:100%; justify-content:center;" onclick="openEditJumlahModal('${order.id}')"><i class="ph ph-pencil-simple"></i> Ubah Jumlah Pesanan</button>
+      <a class="btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="width:100%; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
     </div>`
     }
   `;
@@ -925,141 +938,3 @@ function renderPaymentHistory(orderId, payments) {
     </table>`;
 }
 
-// ---------- "Ubah Jumlah Pesanan" (Admin Kasir & Karyawan) ----------
-// Versi terbatas dari Edit Pesanan: HANYA boleh ubah jumlah tiap item yang
-// sudah ada -- produk, gelombang, harga satuan, dan data pembeli semuanya
-// read-only di sini (dan memang tidak dikirim ke server sama sekali). Kalau
-// perlu ganti produk/harga/tambah-hapus baris/data pembeli, tetap harus
-// lewat Owner (menu Edit Pesanan penuh).
-let ejOrder = null;
-
-function openEditJumlahModal(orderId) {
-  const order = allOrders.find((o) => o.id === orderId);
-  if (!order) return;
-  ejOrder = order;
-  renderEditJumlahForm(order);
-}
-
-function renderEditJumlahForm(order) {
-  const items = order.items || [];
-  const rows = items
-    .map(
-      (it, idx) => `
-    <tr>
-      <td>
-        <div style="font-weight:600; color:var(--gray-800);">${escapeHtml(it.product_name)}</div>
-        <div style="font-size:11px; color:var(--brand-600);">${escapeHtml(resolveWaveLabel(it, allProductsMap))}</div>
-      </td>
-      <td style="text-align:right; white-space:nowrap; color:var(--gray-500);">${formatRupiah(it.harga_satuan)}</td>
-      <td style="text-align:center;">
-        <input type="number" min="1" step="1" value="${it.jumlah}" data-idx="${idx}" class="ej-jumlah-input" style="width:70px; text-align:center;" oninput="updateEjSubtotal()" />
-      </td>
-      <td style="text-align:right; white-space:nowrap; font-weight:600;" id="ej-subtotal-${idx}">${formatRupiah(it.subtotal)}</td>
-    </tr>`
-    )
-    .join("");
-
-  document.getElementById("detail-modal-content").innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-      <h3 style="margin:0;">Ubah Jumlah — ${formatOrderNo(order)}</h3>
-      <button class="icon-btn" onclick="closeDetailModal()"><i class="ph ph-x"></i></button>
-    </div>
-    <p style="color:var(--gray-500); font-size:12.5px; margin:4px 0 14px;">
-      Hanya jumlah yang bisa diubah di sini. Produk, gelombang, harga satuan, dan data pembeli tidak bisa diganti lewat form ini — hubungi Owner kalau itu yang perlu diubah.
-    </p>
-    <table style="margin-bottom:6px;">
-      <thead><tr><th>Produk</th><th style="text-align:right;">Harga Satuan</th><th style="text-align:center;">Jumlah</th><th style="text-align:right;">Subtotal</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div style="display:flex; justify-content:space-between; font-size:14px; padding-top:8px; border-top:1px solid var(--gray-200); margin-bottom:14px;">
-      <span>Total Baru</span><strong id="ej-total">${formatRupiah(order.total)}</strong>
-    </div>
-    <div id="ej-alert"></div>
-    <div style="display:flex; gap:10px;">
-      <button class="btn-primary btn-sm" style="flex:1; justify-content:center;" id="ej-submit-btn" onclick="submitEditJumlah('${order.id}')">Simpan Perubahan</button>
-      <button type="button" class="btn-secondary btn-sm" onclick="renderDetailModal(ejOrder)">Batal</button>
-    </div>
-  `;
-}
-
-function updateEjSubtotal() {
-  let total = 0;
-  document.querySelectorAll(".ej-jumlah-input").forEach((el) => {
-    const idx = Number(el.dataset.idx);
-    const jumlah = Math.max(1, Math.floor(Number(el.value) || 1));
-    const subtotal = ejOrder.items[idx].harga_satuan * jumlah;
-    const cell = document.getElementById(`ej-subtotal-${idx}`);
-    if (cell) cell.textContent = formatRupiah(subtotal);
-    total += subtotal;
-  });
-  document.getElementById("ej-total").textContent = formatRupiah(total);
-}
-
-async function submitEditJumlah(orderId) {
-  const alertBox = document.getElementById("ej-alert");
-  const btn = document.getElementById("ej-submit-btn");
-  alertBox.innerHTML = "";
-
-  const newItems = ejOrder.items.map((it, idx) => {
-    const input = document.querySelector(`.ej-jumlah-input[data-idx="${idx}"]`);
-    const jumlah = Math.max(1, Math.floor(Number(input.value) || 1));
-    return { ...it, jumlah, subtotal: it.harga_satuan * jumlah };
-  });
-  const newTotal = newItems.reduce((sum, it) => sum + it.subtotal, 0);
-
-  const changedParts = [];
-  ejOrder.items.forEach((it, idx) => {
-    if (it.jumlah !== newItems[idx].jumlah) {
-      changedParts.push(`${it.product_name} (${resolveWaveLabel(it, allProductsMap)}): ${it.jumlah} → ${newItems[idx].jumlah}`);
-    }
-  });
-  if (changedParts.length === 0) {
-    alertBox.innerHTML = `<div class="alert alert-error">Belum ada jumlah yang diubah.</div>`;
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = "Menyimpan...";
-  const profile = window.currentUserProfile;
-  const orderRef = db.collection("orders").doc(orderId);
-  try {
-    const updated = await db.runTransaction(async (tx) => {
-      // Baca ulang paid_amount TERBARU dari server (sama seperti alur Edit
-      // Pesanan Owner) -- supaya tidak mengunci total di bawah pembayaran
-      // yang baru saja tercatat oleh rekan kerja lain selagi form ini dibuka.
-      const freshDoc = await tx.get(orderRef);
-      if (!freshDoc.exists) throw new Error("Pesanan tidak ditemukan (mungkin baru saja dihapus).");
-      const freshPaidAmount = freshDoc.data().paid_amount || 0;
-      if (newTotal < freshPaidAmount) {
-        throw new Error(
-          `Total baru (${formatRupiah(newTotal)}) lebih kecil dari yang sudah dibayar (${formatRupiah(freshPaidAmount)}). Tidak bisa mengurangi jumlah sampai di bawah nilai yang sudah dibayar -- hubungi Owner kalau memang perlu koreksi lebih lanjut.`
-        );
-      }
-      const newStatus = computeStatusBayar(newTotal, freshPaidAmount);
-      tx.update(orderRef, {
-        items: newItems,
-        total: newTotal,
-        status_bayar: newStatus,
-        // Dipakai FieldValue.arrayUnion() (bukan serverTimestamp) karena
-        // Firestore tidak mengizinkan sentinel serverTimestamp di dalam array.
-        edit_log: firebase.firestore.FieldValue.arrayUnion({
-          by: profile.uid,
-          by_name: profile.full_name || profile.username || "-",
-          at: new Date(),
-          ringkasan: "Jumlah diubah — " + changedParts.join(", "),
-        }),
-      });
-      return { ...ejOrder, items: newItems, total: newTotal, paid_amount: freshPaidAmount, status_bayar: newStatus };
-    });
-    showToast("Jumlah pesanan berhasil diperbarui.", "success");
-    const idx = allOrders.findIndex((o) => o.id === updated.id);
-    if (idx !== -1) allOrders[idx] = updated;
-    ejOrder = updated;
-    renderOrders();
-    renderDetailModal(updated);
-  } catch (err) {
-    alertBox.innerHTML = `<div class="alert alert-error">${err.message || friendlyFirebaseError(err)}</div>`;
-    btn.disabled = false;
-    btn.textContent = "Simpan Perubahan";
-  }
-}

@@ -6,9 +6,19 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // CATATAN (perbaikan): isOwner()/isAdminKasir() SEKARANG juga mewajibkan
+    // is_active != false -- sebelumnya cuma cek role, jadi akun yang sudah
+    // dinonaktifkan Owner lain tetap lolos di rule "write" yang HANYA
+    // mengandalkan isOwner()/isAdminKasir() tanpa isActiveUser() terpisah
+    // (mis. write ke config/users/products/cabang, delete ke counters).
+    // UI (auth-guard.js) memang sudah mengunci akun nonaktif dari tampilan
+    // aplikasi, tapi itu proteksi client-side saja -- kalau token Auth-nya
+    // masih hidup, orang itu tetap bisa memanggil Firestore SDK langsung
+    // lewat console browser. Sekarang ditutup juga di level Rules.
     function isOwner() {
       return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_active != false;
     }
 
     function isActiveUser() {
@@ -21,7 +31,8 @@ service cloud.firestore {
     // di rule masing-masing collection itu, bukan di sini).
     function isAdminKasir() {
       return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin_kasir';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin_kasir' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_active != false;
     }
 
     // Owner & Admin Kasir boleh akses data pesanan SEMUA cabang.
@@ -92,38 +103,43 @@ service cloud.firestore {
         && data.status_bayar == computedStatusBayar(data.total, data.paid_amount);
     }
 
-    // Field pesanan yang boleh disentuh karyawan/admin kasir (bukan Owner)
-    // saat update: (1) catat pembayaran (paid_amount/status_bayar) & tandai
-    // diambil (is_diambil/tanggal_ambil), ATAU (2) "Ubah Jumlah Pesanan" --
-    // fitur terbatas di UI yang HANYA memungkinkan mengubah jumlah item
-    // (bukan produk/gelombang/harga satuan/data pembeli), makanya di sini
-    // yang boleh berubah cuma items/total/status_bayar/edit_log sekaligus.
-    // nama_pembeli/alamat/no_hp/catatan tetap WAJIB lewat Owner.
-    // paid_amount juga WAJIB tidak boleh turun untuk role selain Owner --
-    // tanpa ini, seseorang yang paham DevTools/console browser bisa memanggil
-    // Firestore langsung (bukan lewat tampilan aplikasi, yang cuma bisa
-    // menambah lewat form catat pembayaran) untuk mengecilkan/mereset
-    // paid_amount, menyembunyikan uang yang sudah tercatat masuk tanpa
-    // meninggalkan jejak di angka pesanan (riwayat di subcollection
-    // "payments" tetap ada & tidak bisa disentuh non-Owner, tapi tanpa
-    // aturan ini paid_amount di dokumen pesanan bisa tidak sinkron dengan
-    // riwayat itu).
+    // Field pesanan yang boleh disentuh staf non-Owner (Admin Kasir &
+    // Karyawan cabang) saat update -- dua kemungkinan kombinasi field yang
+    // berubah sekaligus:
+    //  (1) Catat pembayaran / tandai diambil: paid_amount/status_bayar (dari
+    //      form Catat Pembayaran) atau is_diambil/tanggal_ambil. paid_amount
+    //      WAJIB tidak boleh turun -- tanpa ini, seseorang yang paham
+    //      DevTools/console browser bisa memanggil Firestore langsung untuk
+    //      mengecilkan/mereset paid_amount, menyembunyikan uang yang sudah
+    //      tercatat masuk tanpa jejak (riwayat di subcollection "payments"
+    //      tetap ada & tidak bisa disentuh non-Owner, tapi tanpa aturan ini
+    //      paid_amount di dokumen pesanan bisa tidak sinkron dengan riwayat
+    //      itu).
+    //  (2) Edit Pesanan penuh (nama_pembeli/alamat/no_hp/catatan/items/
+    //      total/tanggal, plus status_bayar & edit_log yang ikut berubah
+    //      otomatis) -- staf non-Owner SEKARANG BOLEH mengedit ini juga
+    //      (sebelumnya khusus Owner), tapi TETAP TIDAK BOLEH menyentuh
+    //      paid_amount lewat jalur ini (tidak ada di daftar field kombinasi
+    //      ini) -- perubahan pembayaran wajib lewat form Catat Pembayaran
+    //      di kombinasi (1), bukan dicampur ke sini.
+    // Yang TETAP terkunci untuk staf non-Owner terlepas dari 2 kombinasi di
+    // atas: Hapus pesanan (lihat "allow delete" di bawah), dan
+    // order_no/created_by/created_at/nota_tahun/nota_seq/cabang_id (dikunci
+    // permanen untuk SEMUA orang termasuk Owner, dicek terpisah di atas).
     //
     // CATATAN: sama seperti isValidOrderShape() di atas, rules ini TIDAK
-    // memvalidasi item-per-item bahwa cuma field "jumlah"/"subtotal" yang
-    // berubah (bukan product_id/wave_id/harga_satuan) -- Security Rules
-    // tidak punya loop atas list yang panjangnya dinamis. Pembatasan
-    // sebenarnya ada di UI (form "Ubah Jumlah" cuma punya input jumlah,
-    // field lain read-only), dimitigasi dengan cara yang sama seperti risiko
-    // "total" yang sudah diterima sebelumnya: DETEKSI lewat hasOrderAnomaly()
-    // + jejak audit di edit_log, bukan dicegah di level server. Ukuran array
-    // (jumlah baris item) tetap dikunci -- tidak boleh nambah/hapus baris.
+    // memvalidasi item-per-item bahwa harga_satuan/product_id/wave_id di tiap
+    // baris items memang berasal dari katalog produk yang sah -- Security
+    // Rules tidak punya loop atas list yang panjangnya dinamis. Dimitigasi
+    // dengan cara yang sama seperti risiko "total" yang sudah diterima
+    // sebelumnya: DETEKSI lewat hasOrderAnomaly() + jejak audit di edit_log
+    // (ditulis dari sisi aplikasi di js/input-pesanan.js), bukan dicegah di
+    // level server.
     function isEmployeeAllowedOrderEdit(before, after) {
       let keys = after.diff(before).affectedKeys();
       return (keys.hasOnly(['paid_amount', 'status_bayar', 'is_diambil', 'tanggal_ambil'])
               && after.get('paid_amount', 0) >= before.get('paid_amount', 0))
-          || (keys.hasOnly(['items', 'total', 'status_bayar', 'edit_log'])
-              && after.items.size() == before.items.size());
+          || keys.hasOnly(['tanggal', 'nama_pembeli', 'alamat', 'no_hp', 'catatan', 'items', 'total', 'status_bayar', 'edit_log']);
     }
 
     // Profil toko: semua yang login DAN masih aktif boleh baca, hanya Owner boleh ubah.

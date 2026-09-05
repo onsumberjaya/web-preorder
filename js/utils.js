@@ -226,6 +226,72 @@ function hasOrderAnomaly(order, productsMap) {
   return anomaly;
 }
 
+// ---------- Rekap stats/produk_cabang (Dashboard: "Detail Total per Produk
+// per Cabang", dipakai Karyawan cabang lihat total lintas cabang) ----------
+// PERBAIKAN: sebelumnya rekap ini TIDAK PERNAH diupdate otomatis (komentar
+// lama di kode menyebut fungsi "adjustProdukCabangStats()" yang ternyata
+// tidak pernah benar-benar ada) -- satu-satunya cara memperbaruinya adalah
+// tombol manual "Hitung Ulang" di halaman Laporan (lihat
+// rebuildProdukCabangStats() di js/laporan.js). Sekarang diupdate INKREMENTAL
+// di transaksi yang sama tiap kali pesanan dibuat/diedit/dihapus (lihat
+// pemanggilnya di js/input-pesanan.js & js/pesanan.js) -- tombol "Hitung
+// Ulang" tetap dipertahankan sebagai alat perbaikan darurat/migrasi data lama
+// (kalau rekap sempat tidak sinkron, mis. dari pesanan yang dibuat sebelum
+// perbaikan ini ada).
+
+// Jumlah per product_id dari sebuah daftar items pesanan (gabung lintas
+// gelombang/wave -- rekap ini memang per-produk, bukan per-gelombang).
+function aggregateQtyByProduct(items) {
+  const map = {};
+  (items || []).forEach((it) => {
+    if (!it.product_id) return;
+    const qty = Number(it.jumlah) || 0;
+    map[it.product_id] = (map[it.product_id] || 0) + qty;
+  });
+  return map;
+}
+
+// Selisih (bisa negatif) antara 2 hasil aggregateQtyByProduct() -- dipakai
+// saat EDIT pesanan (item lama vs item baru, cabang_id-nya selalu sama
+// karena terkunci) supaya cukup 1 penyesuaian delta, tidak perlu
+// kurangi-semua-lalu-tambah-semua.
+function diffQtyByProduct(oldMap, newMap) {
+  const delta = {};
+  new Set([...Object.keys(oldMap || {}), ...Object.keys(newMap || {})]).forEach((pid) => {
+    const diff = (newMap[pid] || 0) - (oldMap[pid] || 0);
+    if (diff !== 0) delta[pid] = diff;
+  });
+  return delta;
+}
+
+// Balik tanda semua nilai (dipakai saat pesanan DIHAPUS -- seluruh isinya
+// jadi pengurangan, bukan penambahan).
+function negateQtyMap(map) {
+  const out = {};
+  Object.keys(map || {}).forEach((pid) => (out[pid] = -map[pid]));
+  return out;
+}
+
+// Terapkan deltaMap ke stats/produk_cabang DI DALAM transaksi Firestore yang
+// sedang berjalan (tx) -- supaya rekap ini SELALU sinkron atomik dengan
+// perubahan pesanan yang memicunya (kalau transaksinya gagal, rekap ini juga
+// ikut batal, tidak ada risiko "pesanan gagal tersimpan tapi rekap sudah
+// kadung berubah" atau sebaliknya). Pakai FieldValue.increment() + set()
+// dengan merge:true (bukan overwrite) supaya field cabang/produk lain yang
+// tidak disentuh tetap utuh -- lihat rebuildProdukCabangStats() di
+// js/laporan.js untuk pembanding versi non-inkremental (hitung ulang total).
+function applyProdukCabangStatsDelta(tx, cabangId, deltaMap) {
+  const keys = Object.keys(deltaMap || {}).filter((pid) => deltaMap[pid] !== 0);
+  if (keys.length === 0) return;
+  const cabangKey = cabangId || "__tanpa_cabang__";
+  const ref = db.collection("stats").doc("produk_cabang");
+  const update = {};
+  keys.forEach((productId) => {
+    update[productId] = { [cabangKey]: firebase.firestore.FieldValue.increment(deltaMap[productId]) };
+  });
+  tx.set(ref, update, { merge: true });
+}
+
 // Kontrol paginasi bergaya sama, dipakai bersama oleh Daftar Pesanan &
 // Laporan & Export. gotoFnName adalah NAMA fungsi (string) yang sudah
 // didefinisikan global di halaman masing-masing (mis. "goToPage" di
