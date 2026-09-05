@@ -36,6 +36,36 @@ function formatOrderNo(order) {
   return `PO-${yy}${seq}`;
 }
 
+// Kunci angka tunggal untuk MENGURUTKAN pesanan berdasarkan nomor nota
+// (tahun dulu, baru urutan dalam tahun itu) -- dipakai Daftar Pesanan supaya
+// pesanan bisa diurutkan sesuai nomor nota, bukan cuma tanggal pesanan
+// (yang kalau diisi tanggal yang sama oleh beberapa pesanan, urutan di
+// antara mereka jadi tidak pasti/acak). Nota lama yang belum punya
+// nota_tahun/nota_seq (dibuat sebelum fitur penomoran per-tahun ada) tetap
+// bisa diurutkan lewat fallback ke order_no + tahun dari field "tanggal".
+function getNotaSortKey(order) {
+  if (order.nota_tahun && order.nota_seq) {
+    return Number(order.nota_tahun) * 100000 + Number(order.nota_seq);
+  }
+  let yy = new Date().getFullYear();
+  if (order.tanggal) {
+    const d = order.tanggal.toDate ? order.tanggal.toDate() : new Date(order.tanggal);
+    if (!isNaN(d)) yy = d.getFullYear();
+  }
+  return yy * 100000 + Number(order.order_no || 0);
+}
+
+// Ubah Firestore Timestamp/Date/null jadi angka milidetik yang bisa
+// dibandingkan langsung -- dipakai buat urutkan pesanan (lihat
+// getFilteredOrders() di js/pesanan.js). Nilai kosong/tidak valid dianggap 0
+// (paling lama), supaya pesanan lama yang datanya tidak lengkap tetap
+// muncul di urutan paling bawah, bukan bikin error.
+function toMillis(value) {
+  if (!value) return 0;
+  const d = value.toDate ? value.toDate() : new Date(value);
+  return isNaN(d) ? 0 : d.getTime();
+}
+
 function todayInputValue() {
   const d = new Date();
   return d.toISOString().slice(0, 10);

@@ -54,6 +54,7 @@
             Sampai <input type="date" id="filter-sampai" />
           </label>
           <input type="text" id="filter-search" placeholder="Cari nama / no HP / no pesanan" style="min-width:200px;" />
+          <input type="text" id="filter-alamat" placeholder="Cari alamat..." style="min-width:160px;" />
           <select id="filter-cabang" style="display:none;"><option value="">Semua Cabang</option></select>
           <select id="filter-produk"><option value="">Semua Produk</option></select>
           <select id="filter-gelombang"><option value="">Semua Gelombang</option></select>
@@ -71,6 +72,14 @@
           </select>
           <label class="filter-chip" id="anomali-chip">
             <input type="checkbox" id="filter-harga-janggal" /> ⚠️ Cek Anomali
+          </label>
+          <label style="font-size:12.5px; color:var(--gray-500); display:flex; align-items:center; gap:6px;">
+            Urutkan
+            <select id="filter-urutan" style="min-width:auto;">
+              <option value="tanggal" selected>Tanggal Pesanan</option>
+              <option value="input">Urutan Input (Terbaru)</option>
+              <option value="nota">Nomor Nota (Terbesar)</option>
+            </select>
           </label>
           <label style="font-size:12.5px; color:var(--gray-500); display:flex; align-items:center; gap:6px;">
             Tampilkan

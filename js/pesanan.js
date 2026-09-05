@@ -155,6 +155,15 @@ window.onAuthReady = function (profile) {
     clearQuickFilterActive();
     debounceRender();
   });
+  document.getElementById("filter-alamat").addEventListener("input", () => {
+    currentPage = 1;
+    clearQuickFilterActive();
+    debounceRender();
+  });
+  document.getElementById("filter-urutan").addEventListener("change", () => {
+    currentPage = 1;
+    renderOrders();
+  });
   document.getElementById("filter-cabang").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
@@ -334,19 +343,22 @@ function refreshOrders() {
 
 function getFilteredOrders() {
   const search = document.getElementById("filter-search").value.trim().toLowerCase();
+  const alamat = document.getElementById("filter-alamat").value.trim().toLowerCase();
   const cabangFilterEl = document.getElementById("filter-cabang");
   const cabangId = cabangFilterEl ? cabangFilterEl.value : "";
   const produkId = document.getElementById("filter-produk").value;
   const gelombangLabel = document.getElementById("filter-gelombang").value;
   const statusBayar = document.getElementById("filter-bayar").value;
   const statusAmbil = document.getElementById("filter-ambil").value;
+  const urutan = document.getElementById("filter-urutan").value;
 
-  return allOrders.filter((o) => {
+  const filtered = allOrders.filter((o) => {
     if (cabangId && o.cabang_id !== cabangId) return false;
     if (search) {
       const hay = `${o.nama_pembeli} ${o.no_hp} ${o.order_no} ${formatOrderNo(o)}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
+    if (alamat && !(o.alamat || "").toLowerCase().includes(alamat)) return false;
     if (produkId && !(o.items || []).some((it) => it.product_id === produkId)) return false;
     if (gelombangLabel && !(o.items || []).some((it) => resolveWaveLabel(it, allProductsMap) === gelombangLabel)) return false;
     if (statusBayar === "belum_lunas" && o.status_bayar === "lunas") return false;
@@ -356,12 +368,32 @@ function getFilteredOrders() {
     if (document.getElementById("filter-harga-janggal").checked && !hasOrderAnomaly(o, allProductsMap)) return false;
     return true;
   });
+
+  // Query Firestore di loadOrders() sudah orderBy("tanggal","desc"), tapi
+  // field "tanggal" cuma presisi tanggal (bukan jam-menit-detik) -- kalau
+  // beberapa pesanan diisi tanggal yang sama, urutan DI ANTARA mereka jadi
+  // tidak pasti (kadang nomor nota lebih besar malah tampil di atas nomor
+  // yang lebih kecil). Makanya di sini diurutkan ULANG sesuai pilihan user:
+  //  - "tanggal" (default): tetap urut tanggal terbaru dulu, TAPI dengan
+  //    tie-breaker nomor nota terbesar dulu untuk tanggal yang sama persis.
+  //  - "input": urutan pesanan dibuat/diinput (created_at, presisi detik).
+  //  - "nota": murni nomor nota terbesar dulu.
+  if (urutan === "input") {
+    filtered.sort((a, b) => toMillis(b.created_at) - toMillis(a.created_at));
+  } else if (urutan === "nota") {
+    filtered.sort((a, b) => getNotaSortKey(b) - getNotaSortKey(a));
+  } else {
+    filtered.sort((a, b) => toMillis(b.tanggal) - toMillis(a.tanggal) || getNotaSortKey(b) - getNotaSortKey(a));
+  }
+
+  return filtered;
 }
 
 function resetFilters() {
   currentPage = 1;
   clearQuickFilterActive();
   document.getElementById("filter-search").value = "";
+  document.getElementById("filter-alamat").value = "";
   const cabangFilterEl = document.getElementById("filter-cabang");
   if (cabangFilterEl) cabangFilterEl.value = "";
   document.getElementById("filter-produk").value = "";
@@ -369,6 +401,7 @@ function resetFilters() {
   document.getElementById("filter-bayar").value = "";
   document.getElementById("filter-ambil").value = "";
   document.getElementById("filter-harga-janggal").checked = false;
+  document.getElementById("filter-urutan").value = "tanggal";
   document.getElementById("anomali-chip").classList.remove("active");
 
   const dariEl = document.getElementById("filter-dari");
@@ -690,14 +723,16 @@ async function deleteOrder(id) {
 
 async function deleteOrderCascade(id) {
   const orderRef = db.collection("orders").doc(id);
-  // Daftar pembayaran dibaca dulu di luar transaksi (transaksi Firestore
-  // butuh referensi dokumen pasti, bukan query) -- celah race sangat kecil
-  // (pembayaran baru masuk PERSIS di antara baca ini & commit di bawah)
-  // sudah ada sejak awal & belum berubah oleh perbaikan ini.
-  const paymentsSnap = await orderRef.collection("payments").get();
-
   await db.runTransaction(async (tx) => {
-    const orderDoc = await tx.get(orderRef);
+    // PERBAIKAN: sebelumnya paymentsSnap dibaca SEBELUM transaksi dimulai --
+    // ada celah kecil kalau ada pembayaran baru masuk PERSIS di antara baca
+    // itu & commit di bawah, pembayaran itu jadi "yatim" (order induknya
+    // sudah terhapus tapi dokumen pembayarannya tidak ikut terhapus).
+    // Sekarang paymentsSnap dibaca DI DALAM transaksi (tx.get() mendukung
+    // query, bukan cuma referensi dokumen tunggal), jadi kalau ada
+    // pembayaran baru masuk di tengah jalan, Firestore otomatis mengulang
+    // transaksi ini dari awal -- tidak ada lagi celah race.
+    const [orderDoc, paymentsSnap] = await Promise.all([tx.get(orderRef), tx.get(orderRef.collection("payments"))]);
     if (!orderDoc.exists) return; // sudah terhapus lebih dulu (mis. tab lain)
     const order = orderDoc.data();
 

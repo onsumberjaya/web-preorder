@@ -190,7 +190,14 @@ window.onAuthReady = async function (profile) {
   document.getElementById("filter-sampai").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-gelombang-dash").addEventListener("change", renderDashboard);
   document.getElementById("filter-cabang-dash").addEventListener("change", renderDashboard);
+  document.getElementById("filter-alamat-dash").addEventListener("input", debounceDashRender);
 };
+
+let dashDebounceTimer;
+function debounceDashRender() {
+  clearTimeout(dashDebounceTimer);
+  dashDebounceTimer = setTimeout(renderDashboard, 200);
+}
 
 function getDateRange() {
   const mode = document.getElementById("filter-periode").value;
@@ -224,9 +231,11 @@ function getDateRange() {
 function filteredDashOrders() {
   const gelombang = document.getElementById("filter-gelombang-dash").value;
   const cabangFilter = document.getElementById("filter-cabang-dash").value;
+  const alamat = document.getElementById("filter-alamat-dash").value.trim().toLowerCase();
   return dashOrders.filter((o) => {
     if (gelombang && !(o.items || []).some((it) => resolveWaveLabelDash(it) === gelombang)) return false;
     if (cabangFilter && o.cabang_id !== cabangFilter) return false;
+    if (alamat && !(o.alamat || "").toLowerCase().includes(alamat)) return false;
     return true;
   });
 }
