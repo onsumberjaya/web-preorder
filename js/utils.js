@@ -310,6 +310,72 @@ function negateQtyMap(map) {
 // dengan merge:true (bukan overwrite) supaya field cabang/produk lain yang
 // tidak disentuh tetap utuh -- lihat rebuildProdukCabangStats() di
 // js/laporan.js untuk pembanding versi non-inkremental (hitung ulang total).
+// Hapus 1 pesanan secara permanen beserta seluruh riwayat pembayarannya
+// (subcollection "payments"), sekaligus menyesuaikan rekap stats/produk_cabang
+// -- semuanya dalam SATU transaksi supaya atomik (kalau gagal di tengah,
+// semuanya batal, tidak ada data yang jadi "yatim" separuh terhapus).
+// Dipakai bersama oleh Daftar Pesanan (hapus 1 per 1 / massal) dan halaman
+// Arsip PO (hapus banyak sekaligus setelah dibackup).
+async function deleteOrderCascade(id) {
+  const orderRef = db.collection("orders").doc(id);
+  await db.runTransaction(async (tx) => {
+    // paymentsSnap dibaca DI DALAM transaksi (bukan sebelumnya) supaya kalau
+    // ada pembayaran baru masuk PERSIS di tengah proses ini, Firestore
+    // otomatis mengulang transaksinya dari awal -- tidak ada celah race yang
+    // bikin dokumen payments jadi yatim (order induknya sudah terhapus tapi
+    // payment-nya belum ikut terhapus).
+    const [orderDoc, paymentsSnap] = await Promise.all([tx.get(orderRef), tx.get(orderRef.collection("payments"))]);
+    if (!orderDoc.exists) return; // sudah terhapus lebih dulu (mis. tab lain)
+    const order = orderDoc.data();
+
+    paymentsSnap.docs.forEach((d) => tx.delete(d.ref));
+    tx.delete(orderRef);
+
+    // Rekap stats/produk_cabang & stats/produk_gelombang: kurangi qty
+    // pesanan yang dihapus ini dari kedua rekap sekaligus.
+    applyProdukCabangStatsDelta(tx, order.cabang_id, negateQtyMap(aggregateQtyByProduct(order.items)));
+    applyProdukGelombangStatsDelta(tx, negateQtyMap(aggregateQtyByWave(order.items)));
+  });
+}
+
+// ---------- Serialisasi Timestamp Firestore untuk file Backup Arsip PO ----------
+// File backup disimpan sebagai JSON biasa (supaya bisa dibuka & diperiksa
+// user), tapi field tanggal di pesanan (tanggal, created_at, tanggal_ambil,
+// edit_log[].at, dst) tersimpan sebagai objek Timestamp Firestore, BUKAN
+// string -- JSON.stringify() bawaan tidak tahu cara mengubahnya balik jadi
+// Timestamp saat di-restore. Makanya sebelum disimpan ke file, semua
+// Timestamp diubah dulu jadi bentuk { __ts:true, iso:"..." } (dikenali balik
+// oleh tsPlainToFirestore() saat restore), jalan rekursif ke semua
+// object/array supaya field manapun (termasuk yang bersarang di dalam
+// edit_log) ikut ketemu tanpa perlu daftar nama field secara manual.
+function tsFirestoreToPlain(value) {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "object" && typeof value.toDate === "function" && typeof value.seconds === "number") {
+    return { __ts: true, iso: value.toDate().toISOString() };
+  }
+  if (Array.isArray(value)) return value.map(tsFirestoreToPlain);
+  if (typeof value === "object") {
+    const out = {};
+    Object.keys(value).forEach((k) => (out[k] = tsFirestoreToPlain(value[k])));
+    return out;
+  }
+  return value;
+}
+
+function tsPlainToFirestore(value) {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "object" && value.__ts === true && typeof value.iso === "string") {
+    return firebase.firestore.Timestamp.fromDate(new Date(value.iso));
+  }
+  if (Array.isArray(value)) return value.map(tsPlainToFirestore);
+  if (typeof value === "object") {
+    const out = {};
+    Object.keys(value).forEach((k) => (out[k] = tsPlainToFirestore(value[k])));
+    return out;
+  }
+  return value;
+}
+
 function applyProdukCabangStatsDelta(tx, cabangId, deltaMap) {
   const keys = Object.keys(deltaMap || {}).filter((pid) => deltaMap[pid] !== 0);
   if (keys.length === 0) return;
@@ -318,6 +384,33 @@ function applyProdukCabangStatsDelta(tx, cabangId, deltaMap) {
   const update = {};
   keys.forEach((productId) => {
     update[productId] = { [cabangKey]: firebase.firestore.FieldValue.increment(deltaMap[productId]) };
+  });
+  tx.set(ref, update, { merge: true });
+}
+
+// Rekap qty per KOMBINASI produk+gelombang (bukan per cabang) -- dipakai
+// untuk peringatan "Kuota" di halaman Input Pesanan & Produk & Batch (lihat
+// aggregateQtyByWave() di bawah). Key-nya berbentuk "productId::waveId",
+// disimpan flat (bukan object bersarang seperti produk_cabang) karena cukup
+// 1 angka per kombinasi, tidak perlu breakdown lagi per sub-kategori lain.
+function aggregateQtyByWave(items) {
+  const map = {};
+  (items || []).forEach((it) => {
+    if (!it.product_id || !it.wave_id) return;
+    const key = `${it.product_id}::${it.wave_id}`;
+    const qty = Number(it.jumlah) || 0;
+    map[key] = (map[key] || 0) + qty;
+  });
+  return map;
+}
+
+function applyProdukGelombangStatsDelta(tx, deltaMap) {
+  const keys = Object.keys(deltaMap || {}).filter((k) => deltaMap[k] !== 0);
+  if (keys.length === 0) return;
+  const ref = db.collection("stats").doc("produk_gelombang");
+  const update = {};
+  keys.forEach((key) => {
+    update[key] = firebase.firestore.FieldValue.increment(deltaMap[key]);
   });
   tx.set(ref, update, { merge: true });
 }

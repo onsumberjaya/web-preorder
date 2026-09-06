@@ -1,7 +1,17 @@
 let allProducts = [];
+let waveStatsMap = {}; // { "productId::waveId": totalQtyTerpakai } -- lihat js/input-pesanan.js utk cara diisi
 
 window.onAuthReady = function () {
   listenProducts();
+  // Real-time: jumlah terpakai per gelombang (dihitung dari pesanan yang
+  // masuk lewat Input Pesanan) supaya tabel di bawah selalu menampilkan
+  // "Terpakai X / Kuota Y" terkini tanpa perlu refresh manual.
+  db.collection("stats")
+    .doc("produk_gelombang")
+    .onSnapshot((doc) => {
+      waveStatsMap = doc.exists ? doc.data() : {};
+      renderProducts();
+    });
 };
 
 function listenProducts() {
@@ -27,18 +37,22 @@ function renderProducts() {
     .map((p) => {
       const waves = p.waves || [];
       const waveRows = waves
-        .map(
-          (w) => `
+        .map((w) => {
+          const terpakai = waveStatsMap[`${p.id}::${w.id}`] || 0;
+          const kuotaInfo = w.kuota !== null && w.kuota !== undefined && w.kuota !== "" ? `<div style="font-size:11.5px; color:var(--gray-500);">Kuota: ${terpakai}/${w.kuota}${terpakai >= w.kuota ? ' <span class="badge badge-yellow">Penuh</span>' : ""}</div>` : "";
+          const sudahTutup = w.tanggal_tutup && new Date() > new Date(w.tanggal_tutup + "T23:59:59");
+          const tutupInfo = w.tanggal_tutup ? `<div style="font-size:11.5px; color:var(--gray-500);">Tutup: ${formatTanggal(new Date(w.tanggal_tutup + "T00:00:00"))}${sudahTutup ? ' <span class="badge badge-yellow">Lewat</span>' : ""}</div>` : "";
+          return `
         <tr>
-          <td>${escapeHtml(w.label)} ${w.aktif ? '<span class="badge badge-green">Aktif</span>' : ""}</td>
+          <td>${escapeHtml(w.label)} ${w.aktif ? '<span class="badge badge-green">Aktif</span>' : ""}${kuotaInfo}${tutupInfo}</td>
           <td>${formatRupiah(w.harga)}</td>
           <td style="text-align:right; white-space:nowrap;">
             ${!w.aktif ? `<button class="btn-secondary btn-sm" onclick="setActiveWave('${p.id}','${w.id}')">Jadikan Aktif</button>` : ""}
             <button class="btn-secondary btn-sm" onclick='openWaveModal("${p.id}", ${JSON.stringify(w).replace(/'/g, "&#39;")})'>Edit</button>
             <button class="btn-danger btn-sm" onclick="deleteWave('${p.id}','${w.id}')">Hapus</button>
           </td>
-        </tr>`
-        )
+        </tr>`;
+        })
         .join("");
       return `
       <div class="card" style="margin-bottom:16px;">
@@ -112,6 +126,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const waveId = document.getElementById("wave-id").value;
     const label = document.getElementById("wave-label").value.trim();
     const harga = Number(document.getElementById("wave-harga").value);
+    const kuotaVal = document.getElementById("wave-kuota").value;
+    const kuota = kuotaVal === "" ? null : Number(kuotaVal);
+    const tanggalTutupVal = document.getElementById("wave-tanggal-tutup").value;
+    const tanggal_tutup = tanggalTutupVal === "" ? null : tanggalTutupVal;
 
     try {
       // Pakai transaksi: baca array "waves" TERBARU dari server tepat saat
@@ -130,12 +148,14 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!waves.some((w) => w.id === waveId)) {
             throw new Error("Gelombang ini sudah tidak ada (mungkin baru saja dihapus rekan kerja). Muat ulang halaman.");
           }
-          waves = waves.map((w) => (w.id === waveId ? { ...w, label, harga } : w));
+          waves = waves.map((w) => (w.id === waveId ? { ...w, label, harga, kuota, tanggal_tutup } : w));
         } else {
           const newWave = {
             id: "w_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             label,
             harga,
+            kuota,
+            tanggal_tutup,
             aktif: waves.length === 0, // gelombang pertama otomatis aktif
           };
           waves.push(newWave);
@@ -168,6 +188,8 @@ function openWaveModal(productId, wave) {
   document.getElementById("wave-id").value = wave ? wave.id : "";
   document.getElementById("wave-label").value = wave ? wave.label : "";
   document.getElementById("wave-harga").value = wave ? wave.harga : "";
+  document.getElementById("wave-kuota").value = wave && wave.kuota !== null && wave.kuota !== undefined ? wave.kuota : "";
+  document.getElementById("wave-tanggal-tutup").value = wave && wave.tanggal_tutup ? wave.tanggal_tutup : "";
   document.getElementById("wave-modal").style.display = "flex";
 }
 function closeWaveModal() {

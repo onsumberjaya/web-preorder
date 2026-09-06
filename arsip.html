@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Arsip PO - Benih Preorder</title>
+<link rel="stylesheet" href="css/style.css" />
+<script>(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#16a34a" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Benih Preorder" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="js/pwa-register.js?v=9"></script>
+</head>
+<body data-allowed-roles="owner,admin_kasir">
+  <div id="mobile-topbar"></div>
+  <div id="sidebar-overlay"></div>
+  <div class="app-shell">
+    <nav id="sidebar"></nav>
+    <main class="content">
+      <h1 class="page-title">Arsip PO</h1>
+      <p class="page-subtitle">Kalau satu periode PO/gelombang sudah ditutup, pesanan-pesanannya bisa dibackup ke file lalu dihapus dari database supaya hemat ruang. File backup bisa dipulihkan (restore) lagi kapan pun kalau datanya ingin ditampilkan ulang.</p>
+
+      <!-- ============ BUAT BACKUP BARU ============ -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-heading" style="margin-bottom:10px;">
+          <span class="card-heading-icon"><i class="ph-bold ph-archive"></i></span>
+          <h3>Buat Backup Baru</h3>
+        </div>
+        <p style="font-size:13px; color:var(--gray-500); margin:0 0 12px;">Tentukan pesanan mana yang mau diarsipkan. <strong>Dari Tanggal</strong> &amp; <strong>Sampai Tanggal</strong> wajib diisi (supaya tidak tidak sengaja membackup seluruh riwayat pesanan sekaligus).</p>
+
+        <div class="grid grid-3">
+          <div class="field">
+            <label>Dari Tanggal *</label>
+            <input type="date" id="ar-dari" required />
+          </div>
+          <div class="field">
+            <label>Sampai Tanggal *</label>
+            <input type="date" id="ar-sampai" required />
+          </div>
+          <div class="field">
+            <label>Produk</label>
+            <select id="ar-produk"><option value="">Semua Produk</option></select>
+          </div>
+        </div>
+        <div class="grid grid-3">
+          <div class="field">
+            <label>Cabang</label>
+            <select id="ar-cabang"><option value="">Semua Cabang</option></select>
+          </div>
+          <div class="field">
+            <label>Gelombang</label>
+            <select id="ar-gelombang"><option value="">Semua Gelombang</option></select>
+          </div>
+        </div>
+
+        <button class="btn-secondary" onclick="previewArsipData()"><i class="ph-bold ph-magnifying-glass"></i> Cek Jumlah Pesanan</button>
+
+        <div id="ar-preview-box" style="margin-top:14px;"></div>
+      </div>
+
+      <!-- ============ RIWAYAT ARSIP ============ -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-heading" style="margin-bottom:10px;">
+          <span class="card-heading-icon"><i class="ph-bold ph-clock-counter-clockwise"></i></span>
+          <h3>Riwayat Arsip</h3>
+        </div>
+        <div id="ar-riwayat-table"><div class="loading-center"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- ============ RESTORE DARI FILE BACKUP ============ -->
+      <div class="card">
+        <div class="card-heading" style="margin-bottom:10px;">
+          <span class="card-heading-icon"><i class="ph-bold ph-upload-simple"></i></span>
+          <h3>Restore dari File Backup</h3>
+        </div>
+        <p style="font-size:13px; color:var(--gray-500); margin:0 0 12px;">Pilih file backup (<code>.json</code>) yang pernah diunduh dari halaman ini untuk menampilkan lagi pesanan-pesanan di dalamnya.</p>
+        <div class="field">
+          <input type="file" id="ar-restore-file" accept="application/json,.json" />
+        </div>
+        <div id="ar-restore-preview"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="js/firebase-config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/nav.js?v=9"></script>
+  <script src="js/auth-guard.js?v=9"></script>
+  <script src="js/presence.js?v=9"></script>
+  <script src="js/arsip.js?v=9"></script>
+</body>
+</html>

@@ -31,6 +31,18 @@ async function loadLaporanOrders() {
   let ordersQuery = db.collection("orders");
   if (!lapShowCabang && profile.cabang_id) {
     ordersQuery = ordersQuery.where("cabang_id", "==", profile.cabang_id);
+  } else if (lapShowCabang) {
+    // Owner/Admin Kasir: kalau mereka memilih salah satu Cabang lewat filter
+    // (bukan "Semua Cabang"), ikut dibatasi di query ini juga -- sebelumnya
+    // filter ini cuma disaring di browser SETELAH membaca seluruh cabang
+    // dalam rentang tanggal itu (lihat applyClientSideFilters()), jadi boros
+    // baca kalau tokonya punya banyak cabang tapi yang mau dilihat cuma 1.
+    // Bentuk query where(cabang_id)+where(tanggal) ini SAMA PERSIS dengan
+    // yang sudah dipakai untuk Karyawan cabang di atas, jadi tidak perlu
+    // index Firestore baru.
+    const cabangSelectEl = document.getElementById("lap-cabang");
+    const cabangFilterVal = cabangSelectEl ? cabangSelectEl.value : "";
+    if (cabangFilterVal) ordersQuery = ordersQuery.where("cabang_id", "==", cabangFilterVal);
   }
   if (dari) ordersQuery = ordersQuery.where("tanggal", ">=", new Date(dari + "T00:00:00"));
   if (sampai) ordersQuery = ordersQuery.where("tanggal", "<=", new Date(sampai + "T23:59:59"));
@@ -85,6 +97,7 @@ window.onAuthReady = async function (profile) {
 
     await applyReportFilter();
     document.getElementById("lap-alamat").addEventListener("input", debounceLapAlamatFilter);
+    document.getElementById("lap-search").addEventListener("input", debounceLapSearchFilter);
     document.getElementById("lap-gelombang").addEventListener("change", applyClientSideFilters);
     document.getElementById("lap-pagesize").addEventListener("change", (e) => {
       lapPageSize = Number(e.target.value) || 20;
@@ -340,12 +353,17 @@ function applyClientSideFilters() {
   const cabangId = cabangEl ? cabangEl.value : "";
   const gelombang = document.getElementById("lap-gelombang").value;
   const alamat = document.getElementById("lap-alamat").value.trim().toLowerCase();
+  const search = document.getElementById("lap-search").value.trim().toLowerCase();
 
   lapFiltered = lapOrders.filter((o) => {
     if (produk && !(o.items || []).some((it) => it.product_name === produk)) return false;
     if (cabangId && o.cabang_id !== cabangId) return false;
     if (gelombang && !(o.items || []).some((it) => resolveWaveLabel(it, lapProductsMap) === gelombang)) return false;
     if (alamat && !(o.alamat || "").toLowerCase().includes(alamat)) return false;
+    if (search) {
+      const hay = `${o.nama_pembeli} ${o.no_hp} ${o.order_no} ${formatOrderNo(o)}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
     return true;
   });
 
@@ -357,6 +375,13 @@ function debounceLapAlamatFilter() {
   lapPage = 1;
   clearTimeout(lapAlamatDebounce);
   lapAlamatDebounce = setTimeout(applyClientSideFilters, 200);
+}
+
+let lapSearchDebounce;
+function debounceLapSearchFilter() {
+  lapPage = 1;
+  clearTimeout(lapSearchDebounce);
+  lapSearchDebounce = setTimeout(applyClientSideFilters, 200);
 }
 
 function renderReport() {
@@ -491,6 +516,8 @@ function buildFilterSummary() {
   }
   const alamat = document.getElementById("lap-alamat").value.trim();
   if (alamat) parts.push(`Alamat: "${alamat}"`);
+  const search = document.getElementById("lap-search").value.trim();
+  if (search) parts.push(`Cari: "${search}"`);
   return parts;
 }
 
@@ -652,7 +679,7 @@ async function rebuildProdukCabangStats() {
   if (!profile || profile.role !== "owner") return;
 
   const lanjut = await showConfirmModal(
-    "Ini akan membaca ULANG seluruh riwayat pesanan (bisa makan waktu beberapa detik kalau datanya sudah banyak) lalu menghitung ulang total per produk per cabang dari nol. Aman dijalankan kapan saja, tidak mengubah data pesanan itu sendiri. Lanjutkan?",
+    "Ini akan membaca ULANG seluruh riwayat pesanan (bisa makan waktu beberapa detik kalau datanya sudah banyak) lalu menghitung ulang total per produk per cabang (dan per gelombang, untuk peringatan Kuota) dari nol. Aman dijalankan kapan saja, tidak mengubah data pesanan itu sendiri. Lanjutkan?",
     { okLabel: "Ya, Hitung Ulang" }
   );
   if (!lanjut) return;
@@ -661,6 +688,7 @@ async function rebuildProdukCabangStats() {
   try {
     const snap = await db.collection("orders").get();
     const rebuilt = {}; // { [productId]: { [cabangId]: qty } }
+    const rebuiltGelombang = {}; // { "productId::waveId": qty }
     let totalItemDihitung = 0;
 
     snap.docs.forEach((d) => {
@@ -671,6 +699,10 @@ async function rebuildProdukCabangStats() {
         const qty = Number(it.jumlah) || 0;
         if (!rebuilt[it.product_id]) rebuilt[it.product_id] = {};
         rebuilt[it.product_id][cabangKey] = (rebuilt[it.product_id][cabangKey] || 0) + qty;
+        if (it.wave_id) {
+          const waveKey = `${it.product_id}::${it.wave_id}`;
+          rebuiltGelombang[waveKey] = (rebuiltGelombang[waveKey] || 0) + qty;
+        }
         totalItemDihitung++;
       });
     });
@@ -679,6 +711,7 @@ async function rebuildProdukCabangStats() {
     // jadi dokumen rekap lama (kalau ada sisa data yang salah/parsial)
     // sengaja ditimpa habis, bukan digabung.
     await db.collection("stats").doc("produk_cabang").set(rebuilt);
+    await db.collection("stats").doc("produk_gelombang").set(rebuiltGelombang);
 
     showToast(
       `Selesai! Rekap dihitung ulang dari ${snap.docs.length} pesanan (${totalItemDihitung} baris produk).`,

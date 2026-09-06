@@ -7,6 +7,7 @@ let chartProduk = null;
 let chartAlamat = null;
 let chartWaktu = null;
 let dashGranularitas = "harian";
+let dashMetrik = "unit"; // "unit" atau "uang" -- toggle di grafik "Pesanan Masuk"
 
 // Chart.js kadang tidak langsung menyesuaikan lebar canvas saat browser
 // di-zoom (beda dengan kotak/box biasa yang otomatis mengikuti lebar layar
@@ -114,9 +115,21 @@ async function loadDashboardData(profile) {
     // Karyawan cabang: query WAJIB dibatasi where('cabang_id', '==', ...), kalau
     // tidak Firestore rules akan menolak query ini sepenuhnya (bukan cuma
     // menyaring hasilnya) karena berpotensi mengembalikan data cabang lain.
+    // Owner/Admin Kasir: kalau mereka MEMILIH salah satu cabang lewat filter
+    // "Cabang" (bukan "Semua Cabang"), ikut dibatasi di query yang sama juga
+    // -- sebelumnya filter ini cuma disaring di browser SETELAH membaca
+    // SELURUH cabang dalam rentang tanggal itu, jadi boros baca kalau
+    // tokonya punya banyak cabang tapi yang mau dilihat cuma 1. Query dengan
+    // bentuk where(cabang_id)+where(tanggal) ini SAMA PERSIS dengan yang
+    // sudah dipakai untuk Karyawan cabang di atas, jadi tidak perlu index
+    // Firestore baru (index yang sudah ada/sudah dibuat lewat Bagian 3d di
+    // PANDUAN-SETUP.md sudah cukup).
     let ordersQuery = db.collection("orders");
     if (!canAccessAllBranches(profile) && profile.cabang_id) {
       ordersQuery = ordersQuery.where("cabang_id", "==", profile.cabang_id);
+    } else if (canAccessAllBranches(profile)) {
+      const cabangFilterVal = document.getElementById("filter-cabang-dash") ? document.getElementById("filter-cabang-dash").value : "";
+      if (cabangFilterVal) ordersQuery = ordersQuery.where("cabang_id", "==", cabangFilterVal);
     }
     if (from) ordersQuery = ordersQuery.where("tanggal", ">=", from);
     if (to) ordersQuery = ordersQuery.where("tanggal", "<=", to);
@@ -164,9 +177,11 @@ function refreshDashboard() {
   if (dashProfile) loadDashboardData(dashProfile);
 }
 
-// Ganti periode/rentang tanggal = perlu baca ulang data dari server (query
-// berubah), beda dari ganti filter Gelombang/Cabang yang cukup disaring ulang
-// di data yang sudah ada di memori (lihat filteredDashOrders()).
+// Ganti periode/rentang tanggal ATAU ganti filter Cabang (khusus Owner/Admin
+// Kasir) = perlu baca ulang data dari server (bentuk query-nya berubah --
+// lihat komentar di loadDashboardData()), beda dari ganti filter Gelombang/
+// Alamat yang cukup disaring ulang di data yang sudah ada di memori (lihat
+// filteredDashOrders()).
 function reloadDashboardForDateChange() {
   if (dashProfile) loadDashboardData(dashProfile);
 }
@@ -189,7 +204,7 @@ window.onAuthReady = async function (profile) {
   document.getElementById("filter-dari").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-sampai").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-gelombang-dash").addEventListener("change", renderDashboard);
-  document.getElementById("filter-cabang-dash").addEventListener("change", renderDashboard);
+  document.getElementById("filter-cabang-dash").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-alamat-dash").addEventListener("input", debounceDashRender);
 };
 
@@ -224,10 +239,12 @@ function getDateRange() {
   return { from, to };
 }
 
-// Rentang tanggal SUDAH dibatasi di query Firestore lewat loadDashboardData()
-// -- dashOrders yang ada di memori sudah otomatis sesuai periode yang
-// dipilih. Fungsi ini cuma menyaring 2 filter sisanya (Gelombang & Cabang)
-// yang tidak perlu baca ulang ke server, cukup disaring di data yang sudah ada.
+// Rentang tanggal & Cabang (kalau dipilih) SUDAH dibatasi di query Firestore
+// lewat loadDashboardData() -- dashOrders yang ada di memori sudah otomatis
+// sesuai itu. Fungsi ini menyaring 2 filter sisanya (Gelombang & Alamat) yang
+// tidak perlu baca ulang ke server, cukup disaring di data yang sudah ada.
+// Cek cabangFilter di bawah jadi cuma jaring pengaman (harusnya sudah cocok
+// semua, karena query-nya sendiri sudah dibatasi) -- tidak menambah baca data.
 function filteredDashOrders() {
   const gelombang = document.getElementById("filter-gelombang-dash").value;
   const cabangFilter = document.getElementById("filter-cabang-dash").value;
@@ -265,7 +282,8 @@ function buildTimeSeries(orders, granularitas) {
       key = d.toISOString().slice(0, 10);
       label = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
     }
-    if (!buckets[key]) buckets[key] = { label, count: 0, perProduk: {} };
+    if (!buckets[key]) buckets[key] = { label, count: 0, uang: 0, perProduk: {} };
+    buckets[key].uang += Number(o.total) || 0;
     (o.items || []).forEach((it) => {
       const qty = Number(it.jumlah) || 0;
       buckets[key].count += qty;
@@ -409,11 +427,17 @@ function renderDashboard() {
     <div class="card" style="margin-top:20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <div class="card-heading"><span class="card-heading-icon"><i class="ph-bold ph-trend-up"></i></span><h3>Pesanan Masuk</h3></div>
-        <select id="chart-granularitas" style="width:auto; min-width:140px;">
-          <option value="harian" ${dashGranularitas === "harian" ? "selected" : ""}>Harian</option>
-          <option value="mingguan" ${dashGranularitas === "mingguan" ? "selected" : ""}>Mingguan</option>
-          <option value="bulanan" ${dashGranularitas === "bulanan" ? "selected" : ""}>Bulanan</option>
-        </select>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <select id="chart-metrik" style="width:auto; min-width:110px;">
+            <option value="unit" ${dashMetrik === "unit" ? "selected" : ""}>Unit</option>
+            <option value="uang" ${dashMetrik === "uang" ? "selected" : ""}>Rupiah</option>
+          </select>
+          <select id="chart-granularitas" style="width:auto; min-width:140px;">
+            <option value="harian" ${dashGranularitas === "harian" ? "selected" : ""}>Harian</option>
+            <option value="mingguan" ${dashGranularitas === "mingguan" ? "selected" : ""}>Mingguan</option>
+            <option value="bulanan" ${dashGranularitas === "bulanan" ? "selected" : ""}>Bulanan</option>
+          </select>
+        </div>
       </div>
       <p style="font-size:12px; color:var(--gray-400); margin:-4px 0 12px;">Tips: pakai filter "Rentang Tanggal..." di atas untuk atur sendiri periode yang ditampilkan.</p>
       <div class="chart-waktu-box"><canvas id="chart-waktu"></canvas></div>
@@ -470,9 +494,13 @@ function renderDashboard() {
 
   const produkNamesUrut = Object.keys(perProduk).sort();
   const produkColorMap = buildProductColorMap(produkNamesUrut);
-  drawTimeSeriesChart("chart-waktu", buildTimeSeries(orders, dashGranularitas), produkNamesUrut, produkColorMap);
+  drawTimeSeriesChart("chart-waktu", buildTimeSeries(orders, dashGranularitas), produkNamesUrut, produkColorMap, dashMetrik);
   document.getElementById("chart-granularitas").addEventListener("change", (e) => {
     dashGranularitas = e.target.value;
+    renderDashboard();
+  });
+  document.getElementById("chart-metrik").addEventListener("change", (e) => {
+    dashMetrik = e.target.value;
     renderDashboard();
   });
 
@@ -484,7 +512,7 @@ function renderDashboard() {
   drawBarChart("chart-alamat", Object.fromEntries(topAlamat), "chartAlamat", "#0ea5e9", true);
 }
 
-function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap) {
+function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap, metrik) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
   if (chartWaktu) chartWaktu.destroy();
@@ -494,29 +522,45 @@ function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap) 
     return;
   }
 
-  const datasets = [
-    {
-      label: "Total Unit",
-      data: timeSeries.map((t) => t.count),
-      borderColor: "#16a34a",
-      backgroundColor: "rgba(22, 163, 74, 0.12)",
-      fill: true,
-      tension: 0.3,
-      pointRadius: 3,
-      pointBackgroundColor: "#16a34a",
-    },
-    ...produkNames.map((nama) => ({
-      label: nama,
-      data: timeSeries.map((t) => t.perProduk[nama] || 0),
-      borderColor: produkColorMap[nama],
-      backgroundColor: "transparent",
-      fill: false,
-      tension: 0.3,
-      borderWidth: 2,
-      pointRadius: 2,
-      pointBackgroundColor: produkColorMap[nama],
-    })),
-  ];
+  // Mode "Rupiah": cuma 1 garis total omzet -- garis per produk (dalam unit)
+  // tidak relevan digabung di skala uang, jadi disembunyikan di mode ini.
+  const datasets =
+    metrik === "uang"
+      ? [
+          {
+            label: "Total Uang (Rp)",
+            data: timeSeries.map((t) => t.uang),
+            borderColor: "#16a34a",
+            backgroundColor: "rgba(22, 163, 74, 0.12)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: "#16a34a",
+          },
+        ]
+      : [
+          {
+            label: "Total Unit",
+            data: timeSeries.map((t) => t.count),
+            borderColor: "#16a34a",
+            backgroundColor: "rgba(22, 163, 74, 0.12)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: "#16a34a",
+          },
+          ...produkNames.map((nama) => ({
+            label: nama,
+            data: timeSeries.map((t) => t.perProduk[nama] || 0),
+            borderColor: produkColorMap[nama],
+            backgroundColor: "transparent",
+            fill: false,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 2,
+            pointBackgroundColor: produkColorMap[nama],
+          })),
+        ];
 
   chartWaktu = new Chart(ctx, {
     type: "line",
@@ -527,8 +571,19 @@ function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap) 
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: {
+        legend: { display: true, position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: metrik === "uang" ? { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatRupiah(ctx.parsed.y)}` } } : {},
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks:
+            metrik === "uang"
+              ? { callback: (value) => (value >= 1000000 ? `${value / 1000000}jt` : value >= 1000 ? `${value / 1000}rb` : value) }
+              : { precision: 0 },
+        },
+      },
     },
   });
 }

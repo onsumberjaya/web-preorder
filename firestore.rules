@@ -231,6 +231,30 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // Riwayat Arsip PO (backup/hapus/restore) -- CUMA berisi metadata (nama
+    // file, jumlah pesanan, ringkasan filter, status), BUKAN data pesanan
+    // itu sendiri (itu ada di file JSON yang diunduh user, bukan di
+    // Firestore) -- jadi ringan & aman dibaca Owner/Admin Kasir. Owner &
+    // Admin Kasir sama-sama boleh Backup & Restore (lihat halaman Arsip PO),
+    // tapi HAPUS permanen pesanan tetap cuma lewat rule "delete" di
+    // /orders/{orderId} di bawah yang sudah cuma Owner -- dokumen di sini
+    // cuma pencatat status "sudah_dihapus"/"utuh", bukan yang benar-benar
+    // menghapus data.
+    match /arsip_log/{docId} {
+      allow read: if isSignedIn() && isActiveUser() && canAccessAllBranches();
+      allow create: if isSignedIn() && isActiveUser() && canAccessAllBranches()
+        && request.resource.data.dibuat_oleh == request.auth.uid
+        && request.resource.data.nama_file is string && request.resource.data.nama_file.size() > 0
+        && request.resource.data.jumlah_pesanan is number && request.resource.data.jumlah_pesanan >= 0;
+      // Update dibatasi cuma untuk mengubah status (sudah_dihapus/utuh) &
+      // info terkait -- nama_file dan dibuat_oleh (siapa pembuat asli
+      // backup-nya) tidak boleh diubah lagi setelah dibuat.
+      allow update: if isSignedIn() && isActiveUser() && canAccessAllBranches()
+        && request.resource.data.nama_file == resource.data.nama_file
+        && request.resource.data.dibuat_oleh == resource.data.dibuat_oleh;
+      allow delete: if isOwner();
+    }
+
     // Pesanan: user aktif boleh baca & buat pesanan baru -- TAPI dibatasi
     // per-cabang untuk role "karyawan" (lihat canAccessAllBranches() di atas):
     // Owner & Admin Kasir bebas semua cabang, Karyawan cabang lain SAMA SEKALI
@@ -256,9 +280,18 @@ service cloud.firestore {
       // Admin Kasir/Owner tidak kena batasan cabang aktif ini -- mereka boleh
       // tetap mencatat pesanan susulan/koreksi untuk cabang yang sudah tutup
       // kalau memang perlu.
+      // CATATAN (fitur Arsip PO / Restore): created_by NORMALNYA wajib sama
+      // dengan yang login (baris di bawah) -- TAPI fitur Restore di halaman
+      // Arsip PO perlu menulis balik pesanan LAMA dengan created_by ASLI
+      // (siapapun yang dulu membuatnya, bukan Owner/Admin Kasir yang sedang
+      // menekan tombol Restore sekarang), supaya riwayat pesanan tetap
+      // akurat. Makanya Owner & Admin Kasir (canAccessAllBranches()) boleh
+      // membuat dokumen dengan created_by APAPUN, tidak cuma dirinya sendiri
+      // -- staf Karyawan cabang (yang tidak punya akses Arsip PO) tetap
+      // wajib created_by == dirinya sendiri seperti sebelumnya.
       allow create: if isSignedIn() && isActiveUser()
         && isValidOrderShape(request.resource.data)
-        && request.resource.data.created_by == request.auth.uid
+        && (request.resource.data.created_by == request.auth.uid || canAccessAllBranches())
         && request.resource.data.cabang_id is string && request.resource.data.cabang_id.size() > 0
         && (canAccessAllBranches()
             || (sameCabang(request.resource.data.cabang_id) && isCabangActive(request.resource.data.cabang_id)));
@@ -294,10 +327,14 @@ service cloud.firestore {
         allow read: if isSignedIn() && isActiveUser()
           && (canAccessAllBranches()
               || sameCabang(get(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
+        // Sama seperti catatan Restore di rule "create" pesanan di atas:
+        // Owner & Admin Kasir boleh menulis balik riwayat pembayaran LAMA
+        // dengan created_by asli (bukan cuma dirinya sendiri) supaya fitur
+        // Restore di halaman Arsip PO bisa memulihkan data persis semula.
         allow create: if isSignedIn() && isActiveUser()
           && request.resource.data.jumlah is number
           && request.resource.data.jumlah > 0
-          && request.resource.data.created_by == request.auth.uid
+          && (request.resource.data.created_by == request.auth.uid || canAccessAllBranches())
           && (canAccessAllBranches()
               || sameCabang(get(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
         allow update, delete: if isOwner();

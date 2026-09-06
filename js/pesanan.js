@@ -608,6 +608,75 @@ function kirimWaSmart(orderId) {
   }
 }
 
+// ---------- Kirim WA Massal ----------
+// Bukan pengiriman otomatis (WhatsApp gratis tidak menyediakan itu) --
+// cuma menyiapkan SATU daftar dari pesanan yang sudah dipilih (checkbox)
+// lewat mode Pilih di tabel, supaya tinggal diklik tombol WA-nya satu per
+// satu tanpa perlu bolak-balik cari & buka Detail Pesanan satu-satu lagi.
+// waMassalSentIds cuma penanda visual sementara SELAMA modal ini terbuka
+// (direset tiap dibuka ulang) -- bukan status permanen, tidak disimpan ke
+// database.
+let waMassalSentIds = new Set();
+
+function openWaMassalModal() {
+  if (selectedIds.size === 0) return;
+  waMassalSentIds = new Set();
+  document.getElementById("wa-massal-modal").style.display = "flex";
+  renderWaMassalList();
+}
+function closeWaMassalModal() {
+  document.getElementById("wa-massal-modal").style.display = "none";
+}
+
+function renderWaMassalList() {
+  const container = document.getElementById("wa-massal-list");
+  const orders = allOrders.filter((o) => selectedIds.has(o.id));
+  const bisaWa = orders.filter((o) => o.no_hp);
+  const tanpaHp = orders.length - bisaWa.length;
+
+  if (bisaWa.length === 0) {
+    container.innerHTML = `<div class="alert alert-info">Tidak ada pesanan terpilih yang punya nomor HP.</div>`;
+    return;
+  }
+
+  const rows = bisaWa
+    .map((o) => {
+      const sisa = o.total - (o.paid_amount || 0);
+      const sudahKirim = waMassalSentIds.has(o.id);
+      const tombolSiapDiambil = !o.is_diambil
+        ? `<button class="btn-secondary btn-sm" onclick="kirimWaMassalItem('${o.id}', 'siap_diambil')"><i class="ph-bold ph-whatsapp-logo"></i> Siap Diambil</button>`
+        : "";
+      const tombolReminder =
+        sisa > 0 ? `<button class="btn-secondary btn-sm" onclick="kirimWaMassalItem('${o.id}', 'reminder')"><i class="ph-bold ph-whatsapp-logo"></i> Reminder Tagihan</button>` : "";
+      return `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--gray-100); flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:600;">${escapeHtml(o.nama_pembeli)} ${sudahKirim ? '<span class="badge badge-green">Terkirim</span>' : ""}</div>
+          <div style="font-size:12px; color:var(--gray-500);">${escapeHtml(o.no_hp)}${sisa > 0 ? ` &middot; Sisa ${formatRupiah(sisa)}` : ""}${!o.is_diambil ? " &middot; Belum diambil" : ""}</div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0;">${tombolSiapDiambil}${tombolReminder}</div>
+      </div>`;
+    })
+    .join("");
+
+  container.innerHTML = `
+    ${tanpaHp > 0 ? `<div class="alert alert-info" style="margin-bottom:10px;">${tanpaHp} pesanan dilewati karena tidak ada nomor HP.</div>` : ""}
+    ${rows}
+  `;
+}
+
+function kirimWaMassalItem(orderId, jenis) {
+  const order = allOrders.find((o) => o.id === orderId);
+  if (!order) return;
+  if (jenis === "siap_diambil") {
+    openWaLink(order.no_hp, pesanWaSiapDiambil(order));
+  } else {
+    openWaLink(order.no_hp, pesanWaReminderTagihan(order));
+  }
+  waMassalSentIds.add(orderId);
+  renderWaMassalList();
+}
+
 
 function exitSelectionMode() {
   checkboxesRevealed = false;
@@ -721,28 +790,8 @@ async function deleteOrder(id) {
   }
 }
 
-async function deleteOrderCascade(id) {
-  const orderRef = db.collection("orders").doc(id);
-  await db.runTransaction(async (tx) => {
-    // PERBAIKAN: sebelumnya paymentsSnap dibaca SEBELUM transaksi dimulai --
-    // ada celah kecil kalau ada pembayaran baru masuk PERSIS di antara baca
-    // itu & commit di bawah, pembayaran itu jadi "yatim" (order induknya
-    // sudah terhapus tapi dokumen pembayarannya tidak ikut terhapus).
-    // Sekarang paymentsSnap dibaca DI DALAM transaksi (tx.get() mendukung
-    // query, bukan cuma referensi dokumen tunggal), jadi kalau ada
-    // pembayaran baru masuk di tengah jalan, Firestore otomatis mengulang
-    // transaksi ini dari awal -- tidak ada lagi celah race.
-    const [orderDoc, paymentsSnap] = await Promise.all([tx.get(orderRef), tx.get(orderRef.collection("payments"))]);
-    if (!orderDoc.exists) return; // sudah terhapus lebih dulu (mis. tab lain)
-    const order = orderDoc.data();
-
-    paymentsSnap.docs.forEach((d) => tx.delete(d.ref));
-    tx.delete(orderRef);
-
-    // Rekap stats/produk_cabang: kurangi qty pesanan yang dihapus ini.
-    applyProdukCabangStatsDelta(tx, order.cabang_id, negateQtyMap(aggregateQtyByProduct(order.items)));
-  });
-}
+// deleteOrderCascade() sekarang di js/utils.js (dipakai bersama halaman
+// Arsip PO untuk hapus banyak pesanan sekaligus setelah dibackup).
 
 // ---------- Modal Detail & Cicilan ----------
 let detailUnsub = null;

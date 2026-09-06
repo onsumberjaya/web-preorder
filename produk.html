@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
-<script src="js/pwa-register.js?v=3"></script>
+<script src="js/pwa-register.js?v=9"></script>
 </head>
 <body data-allowed-roles="owner,admin_kasir">
   <div id="mobile-topbar"></div>
@@ -79,6 +79,17 @@
           <label>Harga (Rp) *</label>
           <input type="number" id="wave-harga" min="0" required />
         </div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Kuota (opsional)</label>
+            <input type="number" id="wave-kuota" min="0" placeholder="Kosongkan jika tidak dibatasi" />
+          </div>
+          <div class="field">
+            <label>Tanggal Tutup (opsional)</label>
+            <input type="date" id="wave-tanggal-tutup" />
+          </div>
+        </div>
+        <p style="font-size:12px; color:var(--gray-500); margin:-8px 0 12px;">Kuota &amp; tanggal tutup cuma peringatan lembut di halaman Input Pesanan (mirip Stok) — tidak memblokir siapa pun untuk tetap menyimpan pesanan melebihi itu, keputusan tetap di tangan Owner.</p>
         <div style="display:flex; gap:10px; margin-top:18px;">
           <button type="submit" class="btn-primary" style="flex:1; justify-content:center;">Simpan</button>
           <button type="button" class="btn-secondary" onclick="closeWaveModal()">Batal</button>
@@ -91,11 +102,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=3"></script>
-  <script src="js/utils.js?v=3"></script>
-  <script src="js/nav.js?v=3"></script>
-  <script src="js/auth-guard.js?v=3"></script>
-  <script src="js/presence.js?v=3"></script>
-  <script src="js/produk.js?v=3"></script>
+  <script src="js/firebase-config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/nav.js?v=9"></script>
+  <script src="js/auth-guard.js?v=9"></script>
+  <script src="js/presence.js?v=9"></script>
+  <script src="js/produk.js?v=9"></script>
 </body>
 </html>

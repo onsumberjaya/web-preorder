@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
-<script src="js/pwa-register.js?v=3"></script>
+<script src="js/pwa-register.js?v=9"></script>
 </head>
 <body>
   <div id="mobile-topbar"></div>
@@ -100,6 +100,7 @@
           <strong id="bulk-count">0 dipilih</strong>
           <button class="btn-secondary btn-sm" onclick="bulkAction(true)">Tandai Sudah Diambil</button>
           <button class="btn-secondary btn-sm" onclick="bulkAction(false)">Tandai Belum Diambil</button>
+          <button class="btn-secondary btn-sm" style="color:var(--brand-700); border-color:var(--brand-300);" onclick="openWaMassalModal()"><i class="ph-bold ph-whatsapp-logo"></i> Kirim WA Massal</button>
           <button class="btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" style="display:none;">Hapus</button>
         </div>
       </div>
@@ -115,15 +116,27 @@
     </div>
   </div>
 
+  <!-- Modal Kirim WA Massal -->
+  <div class="modal-backdrop" id="wa-massal-modal" style="display:none;">
+    <div class="modal-box" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <h3 style="margin:0;">Kirim WA Massal</h3>
+        <button class="icon-btn" onclick="closeWaMassalModal()"><i class="ph ph-x"></i></button>
+      </div>
+      <p style="color:var(--gray-500); font-size:13px; margin:4px 0 14px;">Klik tombol WA di tiap baris satu per satu -- WhatsApp gratis tidak bisa mengirim ke banyak nomor sekaligus otomatis. Baris yang sudah diklik akan ditandai "Terkirim" (cuma penanda sementara selama modal ini terbuka).</p>
+      <div id="wa-massal-list" style="max-height:60vh; overflow-y:auto;"></div>
+    </div>
+  </div>
+
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=3"></script>
-  <script src="js/utils.js?v=3"></script>
-  <script src="js/nav.js?v=3"></script>
-  <script src="js/auth-guard.js?v=3"></script>
-  <script src="js/presence.js?v=3"></script>
-  <script src="js/pesanan.js?v=3"></script>
+  <script src="js/firebase-config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/nav.js?v=9"></script>
+  <script src="js/auth-guard.js?v=9"></script>
+  <script src="js/presence.js?v=9"></script>
+  <script src="js/pesanan.js?v=9"></script>
 </body>
 </html>

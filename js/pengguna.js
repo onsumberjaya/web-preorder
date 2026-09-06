@@ -11,12 +11,29 @@ window.onAuthReady = function () {
 // Fitur "Karyawan Online". Kalau databaseURL belum dikonfigurasi (rtdb ===
 // null, lihat js/firebase-config.js), lewati diam-diam -- tabel akun tetap
 // tampil normal, cuma tanpa kolom status online/offline-nya.
+//
+// PERBAIKAN: sekarang membaca "presence" butuh node roles/{uid} Owner sudah
+// terdaftar "owner" di Realtime Database (lihat database.rules.json) --
+// Owner yang BARU SAJA memasang/meng-upgrade fitur ini tapi belum
+// menyelesaikan langkah bootstrap manual (PANDUAN-SETUP.md Bagian 2c) akan
+// kena "permission_denied" di sini. Ditangkap eksplisit supaya muncul pesan
+// yang jelas ke Owner, bukan gagal diam-diam (kolom Online cuma kosong tanpa
+// penjelasan).
 function listenPresence() {
   if (!rtdb) return;
-  rtdb.ref("presence").on("value", (snap) => {
-    presenceData = snap.val() || {};
-    renderUsers();
-  });
+  rtdb.ref("presence").on(
+    "value",
+    (snap) => {
+      presenceData = snap.val() || {};
+      renderUsers();
+    },
+    (err) => {
+      showToast(
+        "Gagal memuat status \"Karyawan Online\" (" + (err.code || err.message) + "). Kalau ini baru pertama kali muncul setelah update, cek PANDUAN-SETUP.md Bagian 2c -- Owner perlu didaftarkan sekali ke node \"roles\" di Realtime Database.",
+        "error"
+      );
+    }
+  );
 }
 
 // "Online" kalau flagnya true DAN denyut terakhirnya masih dalam 2 menit
@@ -95,6 +112,29 @@ function toggleUserCabangField(roleSelectId, fieldDivId) {
 }
 
 const ROLE_BADGE = { owner: "badge-green", admin_kasir: "badge-yellow", karyawan: "badge-gray" };
+
+// Salinan ringan role akun ke Realtime Database (node "roles/{uid}"), HANYA
+// dipakai supaya database.rules.json bisa mengecek "apakah yang minta baca
+// ini Owner?" tanpa perlu baca Firestore -- Realtime Database & Firestore
+// adalah 2 layanan terpisah, Rules masing-masing tidak bisa saling baca data.
+// Firestore (dokumen users/{uid}, field "role") tetap satu-satunya sumber
+// kebenaran; node ini murni cermin buat keperluan Rules "Karyawan Online"
+// (lihat js/presence.js) supaya presence tidak lagi bisa dibaca semua orang.
+// Dipanggil setiap kali akun dibuat atau role-nya diubah lewat halaman ini.
+// Kalau rtdb belum dikonfigurasi (fitur "Karyawan Online" tidak dipakai),
+// dilewati diam-diam -- tidak memengaruhi pembuatan/pengeditan akun itu
+// sendiri sama sekali.
+async function mirrorRoleToRtdb(uid, role) {
+  if (!rtdb) return;
+  try {
+    await rtdb.ref("roles/" + uid).set(role);
+  } catch (err) {
+    // Diamkan -- kegagalan ini cuma memengaruhi fitur "Karyawan Online"
+    // (Owner mungkin perlu buka halaman ini sekali lagi supaya tersinkron),
+    // bukan pembuatan/pengeditan akunnya sendiri yang sudah berhasil duluan.
+    console.warn("Gagal menyalin role ke Realtime Database (roles/" + uid + "):", err);
+  }
+}
 
 function renderUsers() {
   const container = document.getElementById("user-list");
@@ -208,6 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
         role,
         cabang_id: role === "karyawan" ? cabangId : null,
       });
+      await mirrorRoleToRtdb(id, role);
       showToast("Akun berhasil diperbarui.", "success");
       closeEditUserModal();
     } catch (err) {
@@ -254,6 +295,12 @@ document.addEventListener("DOMContentLoaded", () => {
         is_active: true,
         created_at: firebase.firestore.FieldValue.serverTimestamp(),
       });
+      // Ditulis lewat SESI PRIMER (Owner yang sedang login), bukan
+      // secondaryAuth -- node roles/{uid} akun baru ini butuh penulisnya
+      // (auth.uid di Rules) sudah tercatat sebagai "owner", dan itu cuma
+      // benar untuk sesi primer, bukan sesi kedua yang baru saja login
+      // sebagai akun baru itu sendiri.
+      await mirrorRoleToRtdb(cred.user.uid, role);
       await secondaryAuth.signOut();
       showToast("Akun berhasil dibuat.", "success");
       closeUserModal();

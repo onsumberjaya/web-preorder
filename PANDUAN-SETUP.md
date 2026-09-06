@@ -33,7 +33,22 @@ Ikuti langkah-langkah ini secara berurutan.
    **copy semua isinya**, dan **paste** ke kotak tadi.
 3. Klik **Publish**.
 
-### 1d. Ambil Firebase Config (kunci penghubung)
+### 1d. (Opsional) Aktifkan Realtime Database untuk fitur "Karyawan Online"
+Fitur "Karyawan Online" di halaman **Akun Pengguna** (menampilkan siapa yang sedang online) pakai
+layanan **terpisah** dari Firestore, namanya **Realtime Database**. Lewati bagian ini kalau fitur
+ini tidak diperlukan -- aplikasi tetap jalan normal tanpanya.
+1. Di menu kiri, klik **Build → Realtime Database** (BUKAN "Firestore Database", ini layanan lain).
+2. Klik **Create Database**, pilih lokasi server, klik **Enable**.
+3. Klik tab **Rules**. **Hapus semua isi kotak teks itu**, buka file `database.rules.json` dari folder
+   project ini, **copy semua isinya**, **paste** ke kotak tadi, lalu klik **Publish**.
+4. Salin URL database yang muncul di bagian atas halaman (bentuknya seperti
+   `https://NAMA-PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app`), lalu isikan ke
+   `databaseURL` di `js/firebase-config.js` (lihat komentar di file itu).
+
+> ⚠️ Setelah Rules-nya dipasang, akun **Owner pertama** perlu 1 langkah tambahan supaya bisa melihat
+> siapa yang online -- lihat **Bagian 2c** di bawah (dilakukan sekali saja, sesudah Bagian 2b).
+
+### 1e. Ambil Firebase Config (kunci penghubung)
 1. Klik ikon **gerigi (⚙️)** di pojok kiri atas → **Project settings**.
 2. Scroll ke bawah ke bagian **Your apps**. Klik ikon **`</>`** (Web).
 3. Beri nama app, misalnya `preorder-benih-web` → klik **Register app**.
@@ -80,6 +95,17 @@ dibuat langsung dari dalam aplikasi lewat menu **Akun Pengguna**).
 5. Klik **Save**.
 
 Selesai! Akun pertama Anda: **username `admin`, password `admin123`**.
+
+### 2c. (Cuma kalau Anda mengaktifkan Realtime Database di Bagian 1d) Daftarkan Owner ke node "roles"
+Fitur "Karyawan Online" membatasi siapa yang boleh melihat status online (cuma Owner) lewat sebuah
+node kecil bernama `roles/` di Realtime Database, terpisah dari data role di Firestore. Akun-akun
+BARU yang dibuat lewat menu **Akun Pengguna** akan otomatis terdaftar di sini, tapi Owner **pertama**
+ini (dibuat manual) perlu didaftarkan manual juga, sekali saja:
+1. Firebase Console → **Realtime Database** → tab **Data**.
+2. Klik ikon **+** di samping nama database Anda (root), Key: `roles`.
+3. Di dalam `roles`, klik **+** lagi, Key: **paste User UID Owner** dari langkah 2a, Value: ketik `owner` (jangan pakai tanda kutip, pilih tipe string kalau diminta) → **Add**.
+
+Lewati langkah ini kalau Anda tidak mengaktifkan Realtime Database di Bagian 1d.
 
 ---
 
@@ -170,6 +196,22 @@ Setiap kali Anda edit file (misalnya minta saya tambah fitur lagi), tinggal:
 3. Isi ringkasan singkat di kolom bawah kiri, klik **Commit to main**
 4. Klik **Push origin**
 5. Tunggu ±1 menit, situs online otomatis ter-update
+
+> ⚠️ **PENTING kalau update-nya menyertakan perubahan pada file `firestore.rules` ATAU `database.rules.json`**
+> (misalnya saat fitur **Arsip PO** ditambahkan, atau saat pembatasan akses "Karyawan Online" ke
+> Owner-saja ditambahkan): push kode saja LEWAT GITHUB DESKTOP TIDAK CUKUP, karena Rules Firestore
+> maupun Rules Realtime Database DISIMPAN TERPISAH di Firebase, bukan ikut ter-upload lewat GitHub Pages.
+> Anda perlu publish ulang manual untuk file yang berubah:
+> - `firestore.rules` berubah → ulangi langkah **1c**: copy isinya, paste ke Firebase Console →
+>   **Firestore Database** → tab **Rules** → **Publish**.
+> - `database.rules.json` berubah → ulangi langkah **1d**: copy isinya, paste ke Firebase Console →
+>   **Realtime Database** → tab **Rules** → **Publish**. Kalau ini baru pertama kali dipasang di
+>   instalasi yang SUDAH PUNYA akun Owner sebelumnya, jangan lupa juga langkah **2c** (daftarkan
+>   Owner ke node `roles/`) -- tanpa itu, Owner sendiri akan ikut tidak bisa melihat "Karyawan Online"
+>   sampai node itu dibuat.
+>
+> Kalau langkah ini terlewat, fitur baru yang butuh perubahan Rules (mis. Backup/Restore di Arsip PO,
+> atau "Karyawan Online") akan gagal dengan pesan error "Missing or insufficient permissions" / "Permission denied".
 
 ---
 

@@ -1,9 +1,15 @@
 {
   "rules": {
     "presence": {
-      ".read": "auth != null",
+      ".read": "auth != null && root.child('roles').child(auth.uid).val() === 'owner'",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "roles": {
+      ".read": false,
+      "$uid": {
+        ".write": "auth != null && root.child('roles').child(auth.uid).val() === 'owner'"
       }
     }
   }

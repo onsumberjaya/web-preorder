@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
-<script src="js/pwa-register.js?v=3"></script>
+<script src="js/pwa-register.js?v=9"></script>
 <style>
   /* ---- Gaya khusus halaman Panduan (tidak mengubah style.css global) ---- */
   .panduan-intro-alert{display:flex; gap:12px; align-items:flex-start; background:var(--blue-50); color:var(--blue-700); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:20px; font-size:13.5px; line-height:1.55;}
@@ -208,6 +208,10 @@
 
           <h3>Pilih beberapa pesanan sekaligus (aksi massal)</h3>
           <p>Centang kotak di kolom paling kiri untuk masuk mode pilih banyak, lalu centang beberapa pesanan sekaligus. Toolbar aksi massal akan muncul di bawah untuk menerapkan status "Sudah Diambil"/"Belum Diambil" ke semua pesanan yang dipilih sekaligus — berguna kalau ada banyak pesanan yang diambil dalam satu waktu (mis. serentak saat gelombang datang). Klik <strong>"Batal"</strong> untuk keluar dari mode pilih.</p>
+          <p>Tips: kombinasikan dengan tombol filter cepat <strong>"Belum Diambil Minggu Ini"</strong> / <strong>"Belum Lunas"</strong> di atas tabel dulu untuk mempersempit daftar, baru masuk mode pilih & centang semua — jadi tinggal centang 1x lewat kotak di judul kolom.</p>
+
+          <h3>Kirim WA Massal</h3>
+          <p>Setelah beberapa pesanan dicentang (mode pilih banyak di atas), toolbar aksi massal punya tombol <strong>"Kirim WA Massal"</strong> — ini membuka daftar semua pembeli yang dicentang beserta tombol WA di tiap barisnya (pesan "Siap Diambil" kalau belum diambil, "Reminder Tagihan" kalau ada sisa tagihan). Tetap harus diklik satu per satu (WhatsApp gratis tidak bisa auto-kirim ke banyak nomor sekaligus), tapi tidak perlu bolak-balik cari & buka Detail Pesanan satu-satu lagi — cukup klik turun daftarnya. Baris yang sudah diklik ditandai "Terkirim" sementara (hilang lagi kalau modalnya ditutup).</p>
         </div>
       </details>
 
@@ -228,7 +232,7 @@
           <ol class="panduan-steps">
             <li>Buka menu <strong>Laporan &amp; Export</strong>.</li>
             <li>Secara default, laporan hanya memuat <strong>30 hari terakhir</strong> supaya cepat dibuka. Kalau butuh data lebih lama, ubah <strong>Dari Tanggal</strong> / <strong>Sampai Tanggal</strong>, lalu klik <strong>"Terapkan Filter"</strong>.</li>
-            <li>Bisa juga disaring per <strong>Produk</strong>, <strong>Cabang</strong> (kalau Anda Owner/Admin Kasir — Karyawan Cabang otomatis hanya melihat data cabang sendiri), atau <strong>Alamat</strong> (ketik sebagian alamat, langsung menyaring tanpa perlu klik "Terapkan Filter").</li>
+            <li>Bisa juga disaring per <strong>Produk</strong>, <strong>Cabang</strong> (kalau Anda Owner/Admin Kasir — Karyawan Cabang otomatis hanya melihat data cabang sendiri), <strong>Gelombang</strong>, <strong>Alamat</strong> (ketik sebagian alamat), atau <strong>Cari</strong> (nama pembeli/no HP/no pesanan) — 3 filter terakhir langsung menyaring tanpa perlu klik "Terapkan Filter".</li>
             <li>Setelah data yang ditampilkan sudah sesuai kebutuhan, klik:
               <ul>
                 <li><strong>"⬇️ Export Excel"</strong> — unduh sebagai file <code>.xlsx</code>, atau</li>
@@ -249,12 +253,48 @@
         </div>
       </details>
 
-      <!-- ============ 4. INSTALL DI KOMPUTER (PWA) ============ -->
+      <!-- ============ 4. ARSIP PO ============ -->
+      <details class="panduan-section card" id="sec-arsip">
+        <summary>
+          <span class="panduan-section-icon"><i class="ph-bold ph-archive"></i></span>
+          <span class="panduan-section-title">
+            <h2>4. Arsip PO</h2>
+            <p>Backup, hapus, dan pulihkan data pesanan yang PO-nya sudah ditutup</p>
+          </span>
+          <i class="ph-bold ph-caret-down panduan-chevron"></i>
+        </summary>
+        <div class="panduan-body">
+          <p>Dipakai kalau satu periode PO/gelombang sudah selesai (barang sudah diambil semua) dan datanya ingin diarsipkan supaya database tidak menumpuk terus. Menu ini ada di sidebar untuk Owner &amp; Admin Kasir.</p>
+
+          <h3>Cara membackup</h3>
+          <ol class="panduan-steps">
+            <li>Buka menu <strong>Arsip PO</strong>, isi <strong>Dari Tanggal</strong> &amp; <strong>Sampai Tanggal</strong> periode PO yang mau diarsipkan (wajib diisi keduanya). Bisa juga disaring lebih sempit lagi per Produk/Cabang/Gelombang.</li>
+            <li>Klik <strong>"Cek Jumlah Pesanan"</strong> untuk melihat dulu berapa pesanan yang cocok sebelum benar-benar membuat filenya.</li>
+            <li>Kalau sudah sesuai, klik <strong>"Buat & Unduh File Backup"</strong> — file <code>.json</code> akan terunduh ke perangkat Anda. Simpan file ini baik-baik (mis. di Google Drive) — file inilah satu-satunya salinan data pesanan itu kalau nanti dihapus dari database.</li>
+          </ol>
+
+          <h3>Menghapus dari database (khusus Owner)</h3>
+          <p>Setelah file terunduh, akan muncul kotak centang <strong>"Saya sudah menyimpan file backup ini di tempat yang aman"</strong> — centang dulu baru tombol <strong>"Hapus ... Pesanan Ini dari Database"</strong> aktif. Ini menghapus PERMANEN pesanan-pesanan yang barusan dibackup dari database (supaya hemat ruang), tapi filenya tetap aman di perangkat Anda untuk dipulihkan lagi kapan pun.</p>
+
+          <h3>Memulihkan lagi (Restore)</h3>
+          <p>Kalau suatu saat data yang sudah diarsipkan itu ingin ditampilkan lagi (mis. ada yang tanya riwayat pesanan lama), buka menu <strong>Arsip PO</strong> → bagian <strong>"Restore dari File Backup"</strong> → pilih file <code>.json</code> yang dulu diunduh → klik <strong>"Restore"</strong>. Semua pesanan di file itu akan ditulis balik ke database persis seperti semula (termasuk riwayat pembayarannya). Bisa dipakai Owner maupun Admin Kasir.</p>
+
+          <h3>Riwayat Arsip</h3>
+          <p>Di halaman yang sama ada tabel <strong>Riwayat Arsip</strong> yang mencatat semua backup yang pernah dibuat — nama file, tanggal &amp; jam dibuat, jumlah pesanan, dan statusnya (masih ada di database, atau sudah dihapus). Ini cuma catatan, bukan isi datanya — isi datanya tetap di file <code>.json</code> yang Anda simpan sendiri.</p>
+
+          <div class="panduan-note warn">
+            <i class="ph-bold ph-warning"></i>
+            <div>Simpan file backup di tempat yang aman <strong>SEBELUM</strong> menghapus datanya — kalau filenya hilang setelah data dihapus dari database, data itu tidak bisa dikembalikan lagi.</div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ============ 5. INSTALL DI KOMPUTER (PWA) ============ -->
       <details class="panduan-section card" id="sec-install">
         <summary>
           <span class="panduan-section-icon"><i class="ph-bold ph-download-simple"></i></span>
           <span class="panduan-section-title">
-            <h2>4. Install Aplikasi di Komputer (Chrome)</h2>
+            <h2>5. Install Aplikasi di Komputer (Chrome)</h2>
             <p>Supaya buka aplikasi lebih cepat, tanpa ketik alamat berulang</p>
           </span>
           <i class="ph-bold ph-caret-down panduan-chevron"></i>
@@ -288,11 +328,11 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=3"></script>
-  <script src="js/utils.js?v=3"></script>
-  <script src="js/nav.js?v=3"></script>
-  <script src="js/auth-guard.js?v=3"></script>
-  <script src="js/presence.js?v=3"></script>
+  <script src="js/firebase-config.js?v=9"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/nav.js?v=9"></script>
+  <script src="js/auth-guard.js?v=9"></script>
+  <script src="js/presence.js?v=9"></script>
   <script>
     // Pencarian ringan: buka otomatis section yang cocok, sembunyikan yang tidak.
     const searchInput = document.getElementById("panduan-search-input");

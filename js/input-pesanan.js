@@ -1,4 +1,5 @@
 let products = [];
+let waveStatsMap = {}; // { "productId::waveId": totalQtyTerpakai } -- real-time dari stats/produk_gelombang
 let lineItems = [];
 let lineKeyCounter = 0;
 let editOrderId = null;
@@ -102,6 +103,15 @@ window.onAuthReady = async function (profile) {
         showToast("Gagal memuat produk: " + friendlyFirebaseError(err), "error");
       }
     );
+
+  // Real-time: jumlah terpakai per gelombang, dipakai peringatan Kuota
+  // (mirip peringatan Stok) di form Input Pesanan.
+  db.collection("stats")
+    .doc("produk_gelombang")
+    .onSnapshot((doc) => {
+      waveStatsMap = doc.exists ? doc.data() : {};
+      if (formReady) renderLineItems();
+    });
 };
 
 function tryRenderOrRefreshForm() {
@@ -178,8 +188,20 @@ function renderForm() {
   // Karyawan cabang yang cabangnya sudah dinonaktifkan Owner (lihat halaman
   // Kelola Cabang) tidak boleh lagi input pesanan BARU -- riwayat pesanan
   // lama tetap bisa dilihat seperti biasa lewat Daftar Pesanan, cuma
-  // halaman ini yang diblokir. (Mode Edit tidak relevan di sini karena
-  // sudah dikunci Owner-only lebih dulu di atas.)
+  // halaman ini (input pesanan BARU) yang diblokir.
+  //
+  // CATATAN: blokir ini SENGAJA cuma berlaku untuk `!isEdit` (pesanan baru),
+  // BUKAN untuk Edit Pesanan pada pesanan yang sudah ada. Karyawan cabang
+  // yang cabangnya sudah nonaktif tetap BISA membuka & menyimpan Edit
+  // Pesanan untuk pesanan lama miliknya sendiri (lihat juga catatan di
+  // window.onAuthReady di atas soal Edit Pesanan yang sekarang tidak lagi
+  // khusus Owner) -- ini kesengajaan, bukan celah yang lolos: menonaktifkan
+  // cabang cuma berarti "tutup untuk transaksi BARU", bukan "riwayat
+  // dibekukan total", jadi mengoreksi pesanan lama (mis. salah ketik alamat)
+  // tetap harus bisa dilakukan staf cabang itu sendiri tanpa perlu minta
+  // Owner turun tangan. Firestore Rules juga sengaja tidak membatasi update
+  // berdasarkan status aktif cabang (cuma create yang dibatasi) -- lihat
+  // firestore.rules bagian "allow create" pada match /orders/{orderId}.
   if (!isEdit) {
     const profile = window.currentUserProfile;
     if (profile && profile.role === "karyawan" && profile.cabang_id) {
@@ -371,6 +393,29 @@ function stockWarningHtml(prod, jumlah) {
   return `<p style="font-size:12px; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:5px 8px; margin:6px 0 0;">⚠️ Melebihi stok tercatat untuk ${escapeHtml(prod.nama)} (stok: ${prod.stok}). Tetap bisa disimpan — cek dulu stok fisiknya kalau perlu.</p>`;
 }
 
+// Sama seperti stockWarningHtml() di atas -- peringatan LEMBUT saja, bukan
+// larangan: Kuota & Tanggal Tutup gelombang cuma catatan (bisa diatur di
+// halaman Produk & Batch), owner tetap bisa lanjut menyimpan pesanan yang
+// melebihi kuota atau sudah lewat tanggal tutup kalau memang itu kebijakannya
+// (mis. ada tambahan pesanan dadakan di luar rencana awal).
+function gelombangWarningHtml(prod, wave, jumlah) {
+  if (!prod || !wave) return "";
+  const pesan = [];
+  const qty = Number(jumlah) || 0;
+
+  if (wave.tanggal_tutup && new Date() > new Date(wave.tanggal_tutup + "T23:59:59")) {
+    pesan.push(`sudah lewat tanggal tutup (${formatTanggal(new Date(wave.tanggal_tutup + "T00:00:00"))})`);
+  }
+  if (wave.kuota !== null && wave.kuota !== undefined && wave.kuota !== "") {
+    const terpakai = waveStatsMap[`${prod.id}::${wave.id}`] || 0;
+    if (terpakai + qty > wave.kuota) {
+      pesan.push(`kuota terpakai ${terpakai}/${wave.kuota}`);
+    }
+  }
+  if (pesan.length === 0) return "";
+  return `<p style="font-size:12px; color:#b45309; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:5px 8px; margin:6px 0 0;">⚠️ Gelombang "${escapeHtml(wave.label)}" ${pesan.join("; ")}. Tetap bisa disimpan sesuai kebijakan Owner.</p>`;
+}
+
 // Peringatan kalau baris ini merujuk produk/gelombang yang sudah dihapus
 // dari katalog (khusus mode Edit pesanan lama) -- jelaskan bahwa harga yang
 // dipakai adalah data historis pesanan ini, bukan harga yang aktif sekarang.
@@ -412,7 +457,7 @@ function renderLineItems() {
             ${lineItems.length > 1 ? `<a href="#" onclick="removeLine(${line.key}); return false;" style="color:var(--red-600);">Hapus</a>` : ""}
           </span>
         </div>
-        <div id="stock-warning-${line.key}">${stockWarningHtml(prod, line.jumlah)}</div>
+        <div id="stock-warning-${line.key}">${stockWarningHtml(prod, line.jumlah)}${gelombangWarningHtml(prod, wave, line.jumlah)}</div>
         ${line.product_id && line.wave_id ? ghostLineWarningHtml(info) : ""}
       </div>`;
     })
@@ -433,7 +478,10 @@ function updateLine(key, field, value) {
     const subtotalEl = document.getElementById(`subtotal-${key}`);
     if (subtotalEl) subtotalEl.textContent = `Subtotal: ${formatRupiah(lineSubtotal(line))}`;
     const warnEl = document.getElementById(`stock-warning-${key}`);
-    if (warnEl) warnEl.innerHTML = stockWarningHtml(getProduct(line.product_id), line.jumlah);
+    if (warnEl) {
+      const prod = getProduct(line.product_id);
+      warnEl.innerHTML = stockWarningHtml(prod, line.jumlah) + gelombangWarningHtml(prod, getWave(prod, line.wave_id), line.jumlah);
+    }
     updateTotalDisplay();
     return;
   }
@@ -603,13 +651,15 @@ async function handleSubmit(e) {
         const newDataForLog = { nama_pembeli: namaPembeli, alamat, no_hp: noHp, catatan, items: itemsData, total };
         const ringkasan = buildEditSummary(freshOrder, newDataForLog);
 
-        // Rekap stats/produk_cabang: sesuaikan selisih qty lama -> baru (bisa
-        // saja Owner ganti produk/jumlah di form Edit Pesanan penuh ini).
+        // Rekap stats/produk_cabang & stats/produk_gelombang: sesuaikan
+        // selisih qty lama -> baru (bisa saja Owner ganti produk/gelombang/
+        // jumlah di form Edit Pesanan penuh ini).
         applyProdukCabangStatsDelta(
           tx,
           freshOrder.cabang_id,
           diffQtyByProduct(aggregateQtyByProduct(freshOrder.items), aggregateQtyByProduct(itemsData))
         );
+        applyProdukGelombangStatsDelta(tx, diffQtyByProduct(aggregateQtyByWave(freshOrder.items), aggregateQtyByWave(itemsData)));
 
         tx.update(orderRef, {
           tanggal,
@@ -689,8 +739,10 @@ async function handleSubmit(e) {
         });
       }
 
-      // Rekap stats/produk_cabang: tambahkan qty pesanan baru ini.
+      // Rekap stats/produk_cabang & stats/produk_gelombang: tambahkan qty
+      // pesanan baru ini.
       applyProdukCabangStatsDelta(tx, cabangIdBaru, aggregateQtyByProduct(itemsData));
+      applyProdukGelombangStatsDelta(tx, aggregateQtyByWave(itemsData));
     });
 
     showToast("Pesanan berhasil disimpan.", "success");
