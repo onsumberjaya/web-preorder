@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
-<script src="js/pwa-register.js"></script>
+<script src="js/pwa-register.js?v=3"></script>
 </head>
 <body>
   <div id="mobile-topbar"></div>
@@ -55,9 +55,19 @@
             <select id="lap-produk"><option value="">Semua Produk</option></select>
           </div>
         </div>
-        <div class="field" id="lap-cabang-field" style="display:none; max-width:320px; margin-top:12px;">
-          <label>Cabang</label>
-          <select id="lap-cabang"><option value="">Semua Cabang</option></select>
+        <div class="grid grid-3" style="margin-top:12px;">
+          <div class="field" id="lap-cabang-field" style="display:none;">
+            <label>Cabang</label>
+            <select id="lap-cabang"><option value="">Semua Cabang</option></select>
+          </div>
+          <div class="field">
+            <label>Gelombang</label>
+            <select id="lap-gelombang"><option value="">Semua Gelombang</option></select>
+          </div>
+          <div class="field">
+            <label>Alamat</label>
+            <input type="text" id="lap-alamat" placeholder="Cari alamat..." />
+          </div>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:6px;">
           <button class="btn-secondary" onclick="applyReportFilter()">Terapkan Filter</button>
@@ -101,11 +111,11 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
-  <script src="js/firebase-config.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/nav.js"></script>
-  <script src="js/auth-guard.js"></script>
-  <script src="js/presence.js"></script>
-  <script src="js/laporan.js"></script>
+  <script src="js/firebase-config.js?v=3"></script>
+  <script src="js/utils.js?v=3"></script>
+  <script src="js/nav.js?v=3"></script>
+  <script src="js/auth-guard.js?v=3"></script>
+  <script src="js/presence.js?v=3"></script>
+  <script src="js/laporan.js?v=3"></script>
 </body>
 </html>

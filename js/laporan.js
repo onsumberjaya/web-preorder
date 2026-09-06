@@ -80,8 +80,12 @@ window.onAuthReady = async function (profile) {
       opt.textContent = p.nama;
       select.appendChild(opt);
     });
+    updateLapGelombangOptions();
+    select.addEventListener("change", updateLapGelombangOptions);
 
     await applyReportFilter();
+    document.getElementById("lap-alamat").addEventListener("input", debounceLapAlamatFilter);
+    document.getElementById("lap-gelombang").addEventListener("change", applyClientSideFilters);
     document.getElementById("lap-pagesize").addEventListener("change", (e) => {
       lapPageSize = Number(e.target.value) || 20;
       lapPage = 1;
@@ -108,6 +112,38 @@ window.onAuthReady = async function (profile) {
 
 function cabangNamaLap(cabangId) {
   return cabangId && lapCabangMap[cabangId] ? lapCabangMap[cabangId].nama : "-";
+}
+
+// Opsi dropdown Gelombang mengikuti Produk yang sedang dipilih (sama seperti
+// di halaman Daftar Pesanan) -- kalau Produk dikosongkan ("Semua Produk"),
+// tampilkan semua label gelombang unik yang pernah dipakai supaya tetap bisa
+// disaring lintas produk. Catatan: filter "lap-produk" di halaman ini
+// menyimpan NAMA produk (bukan id), jadi produknya dicari lewat nama dulu.
+function updateLapGelombangOptions() {
+  const produkNama = document.getElementById("lap-produk").value;
+  const select = document.getElementById("lap-gelombang");
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">Semua Gelombang</option>';
+  const product = produkNama ? Object.values(lapProductsMap).find((p) => p.nama === produkNama) : null;
+  if (product) {
+    (product.waves || []).forEach((w) => {
+      const opt = document.createElement("option");
+      opt.value = w.label;
+      opt.textContent = w.label;
+      select.appendChild(opt);
+    });
+  } else {
+    const labels = new Set();
+    Object.values(lapProductsMap).forEach((p) => (p.waves || []).forEach((w) => labels.add(w.label)));
+    labels.forEach((label) => {
+      const opt = document.createElement("option");
+      opt.value = label;
+      opt.textContent = label;
+      select.appendChild(opt);
+    });
+  }
+  const optionValues = Array.from(select.options).map((o) => o.value);
+  if (optionValues.includes(currentValue)) select.value = currentValue;
 }
 
 // Pesanan lama (dibuat sebelum fitur nomor nota per-tahun ada) belum punya
@@ -290,17 +326,37 @@ async function applyReportFilter() {
     return;
   }
 
+  applyClientSideFilters();
+}
+
+// Produk/Cabang/Alamat semuanya disaring di data yang SUDAH ada di memori
+// (tidak perlu baca ulang ke Firestore -- beda dari ganti tanggal yang wajib
+// lewat applyReportFilter() di atas). Dipisah jadi fungsi sendiri supaya
+// filter Alamat bisa langsung menyaring sambil diketik (debounced) tanpa
+// bikin boros baca Firestore tiap huruf yang diketik.
+function applyClientSideFilters() {
   const produk = document.getElementById("lap-produk").value;
   const cabangEl = document.getElementById("lap-cabang");
   const cabangId = cabangEl ? cabangEl.value : "";
+  const gelombang = document.getElementById("lap-gelombang").value;
+  const alamat = document.getElementById("lap-alamat").value.trim().toLowerCase();
 
   lapFiltered = lapOrders.filter((o) => {
     if (produk && !(o.items || []).some((it) => it.product_name === produk)) return false;
     if (cabangId && o.cabang_id !== cabangId) return false;
+    if (gelombang && !(o.items || []).some((it) => resolveWaveLabel(it, lapProductsMap) === gelombang)) return false;
+    if (alamat && !(o.alamat || "").toLowerCase().includes(alamat)) return false;
     return true;
   });
 
   renderReport();
+}
+
+let lapAlamatDebounce;
+function debounceLapAlamatFilter() {
+  lapPage = 1;
+  clearTimeout(lapAlamatDebounce);
+  lapAlamatDebounce = setTimeout(applyClientSideFilters, 200);
 }
 
 function renderReport() {
@@ -409,12 +465,49 @@ function goToLapPage(page) {
   document.getElementById("laporan-table").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// Ringkasan filter yang SEDANG AKTIF di halaman (tanggal, produk, cabang,
+// alamat) -- dipakai buat baris judul di file Excel/PDF yang diekspor,
+// supaya kalau filenya dibuka lagi nanti (atau dibagikan ke orang lain)
+// tetap jelas laporan ini mencakup data yang mana, tanpa perlu buka lagi
+// aplikasinya. Mengembalikan array baris teks (kosong kalau memang tidak
+// ada filter yang disempitkan sama sekali dari default).
+function buildFilterSummary() {
+  const parts = [];
+  const dari = document.getElementById("lap-dari").value;
+  const sampai = document.getElementById("lap-sampai").value;
+  if (dari || sampai) {
+    const fmt = (v) => (v ? formatTanggal(new Date(v + "T00:00:00")) : "...");
+    parts.push(`Tanggal: ${fmt(dari)} s/d ${fmt(sampai)}`);
+  }
+  const produk = document.getElementById("lap-produk").value;
+  if (produk) parts.push(`Produk: ${produk}`);
+  const gelombang = document.getElementById("lap-gelombang").value;
+  if (gelombang) parts.push(`Gelombang: ${gelombang}`);
+  const cabangEl = document.getElementById("lap-cabang");
+  const cabangId = cabangEl ? cabangEl.value : "";
+  if (cabangId) {
+    const opt = Array.from(cabangEl.options).find((o) => o.value === cabangId);
+    parts.push(`Cabang: ${opt ? opt.textContent : cabangId}`);
+  }
+  const alamat = document.getElementById("lap-alamat").value.trim();
+  if (alamat) parts.push(`Alamat: "${alamat}"`);
+  return parts;
+}
+
 function exportExcel() {
   if (lapFiltered.length === 0) {
     showToast("Tidak ada data untuk diekspor.", "error");
     return;
   }
-  const data = [];
+
+  const headers = ["No Pesanan", "Tanggal"];
+  if (lapShowCabang) headers.push("Cabang");
+  headers.push(
+    "Nama", "No HP", "Alamat", "Produk", "Gelombang", "Qty", "Harga Satuan", "Subtotal",
+    "Total Pesanan", "Dibayar", "Kekurangan", "Status Bayar", "Pengambilan", "Cek Harga", "Catatan"
+  );
+
+  const dataRows = [];
   lapFiltered.forEach((o) => {
     const items = o.items && o.items.length ? o.items : [null];
     items.forEach((it) => {
@@ -440,10 +533,55 @@ function exportExcel() {
         "Cek Harga": hasOrderAnomaly(o, lapProductsMap) ? "JANGGAL" : "OK",
         Catatan: o.catatan || "",
       });
-      data.push(row);
+      dataRows.push(headers.map((h) => (row[h] !== undefined && row[h] !== null ? row[h] : "")));
     });
   });
-  const ws = XLSX.utils.json_to_sheet(data);
+
+  // Baris judul di atas tabel: nama toko, nama laporan + tanggal diekspor,
+  // dan (kalau ada) ringkasan filter yang sedang aktif -- dibangun manual
+  // pakai aoa_to_sheet() (array-of-array), BUKAN json_to_sheet() seperti
+  // sebelumnya, supaya baris judul ini bisa disisipkan sebelum baris header
+  // tabel data.
+  const filterParts = buildFilterSummary();
+  const aoa = [[lapToko.nama || "Toko Benih"], [`Laporan Pesanan — diekspor ${formatTanggal(new Date())}`]];
+  if (filterParts.length > 0) aoa.push([`Filter aktif: ${filterParts.join("  |  ")}`]);
+  aoa.push([]); // baris kosong pemisah biar judul tidak menempel ke tabel
+  const headerRowIdx = aoa.length; // baris (0-indexed) tempat header tabel data berada
+  aoa.push(headers);
+  dataRows.forEach((r) => aoa.push(r));
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const numCols = headers.length;
+
+  // CATATAN: SheetJS versi gratis (xlsx.full.min.js, dipakai di sini) TIDAK
+  // mendukung menulis style (bold/warna/border) ke file .xlsx -- fitur itu
+  // khusus versi Pro berbayar. Jadi "rapi" di sini dicapai lewat 2 hal yang
+  // memang didukung versi gratis: (1) MERGE baris judul jadi 1 sel lebar
+  // penuh tabel (bukan cuma nampung di kolom A doang), dan (2) lebar kolom
+  // otomatis menyesuaikan isi terpanjang tiap kolom -- bukan lewat font
+  // tebal/warna yang tidak akan ikut tersimpan.
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } },
+  ];
+  if (filterParts.length > 0) {
+    ws["!merges"].push({ s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } });
+  }
+
+  ws["!cols"] = headers.map((h, colIdx) => {
+    let maxLen = String(h).length;
+    dataRows.forEach((r) => {
+      const v = r[colIdx];
+      if (v !== undefined && v !== null && v !== "") maxLen = Math.max(maxLen, String(v).length);
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+
+  // "Freeze" baris header tabel supaya tetap kelihatan saat scroll ke bawah
+  // -- best-effort, aman kalau ternyata tidak didukung (tidak menyebabkan
+  // error, cuma tidak ke-freeze).
+  ws["!sheetViews"] = [{ state: "frozen", ySplit: headerRowIdx + 1, topLeftCell: `A${headerRowIdx + 2}` }];
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Laporan Pesanan");
   XLSX.writeFile(wb, `laporan-pesanan-${todayInputValue()}.xlsx`);
@@ -459,7 +597,14 @@ function exportPdf() {
   doc.setFontSize(14);
   doc.text(lapToko.nama || "Toko Benih", 14, 15);
   doc.setFontSize(10);
-  doc.text(`Laporan Pesanan - dicetak ${formatTanggal(new Date())}`, 14, 21);
+  doc.text(`Laporan Pesanan - diekspor ${formatTanggal(new Date())}`, 14, 21);
+  const filterParts = buildFilterSummary();
+  let tableStartY = 27;
+  if (filterParts.length > 0) {
+    doc.setFontSize(9);
+    doc.text(`Filter aktif: ${filterParts.join("  |  ")}`, 14, 26);
+    tableStartY = 31;
+  }
 
   const body = lapFiltered.map((o, idx) => {
     const row = [idx + 1, `${formatOrderNo(o)}\n${formatTanggal(o.tanggal)}`];
@@ -483,7 +628,7 @@ function exportPdf() {
   head.push("Pemesan", "Produk", "Gelombang", "Qty", "Total", "Dibayar", "Kekurangan", "Status Bayar", "Pengambilan");
 
   doc.autoTable({
-    startY: 27,
+    startY: tableStartY,
     head: [head],
     body,
     styles: { fontSize: 8 },
