@@ -113,6 +113,18 @@ function toggleUserCabangField(roleSelectId, fieldDivId) {
 
 const ROLE_BADGE = { owner: "badge-green", admin_kasir: "badge-yellow", karyawan: "badge-gray" };
 
+// PERBAIKAN: field ini sebelumnya type="text" (password kelihatan polos di
+// layar saat diketik). Sekarang type="password" seperti di halaman login,
+// dengan tombol mata yang sama untuk lihat/sembunyikan kalau perlu dicek lagi.
+function toggleUserPasswordVisibility() {
+  const input = document.getElementById("user-password");
+  const icon = document.getElementById("user-password-toggle-icon");
+  const showing = input.type === "text";
+  input.type = showing ? "password" : "text";
+  icon.classList.toggle("ph-eye", showing);
+  icon.classList.toggle("ph-eye-slash", !showing);
+}
+
 // Salinan ringan role akun ke Realtime Database (node "roles/{uid}"), HANYA
 // dipakai supaya database.rules.json bisa mengecek "apakah yang minta baca
 // ini Owner?" tanpa perlu baca Firestore -- Realtime Database & Firestore
@@ -200,6 +212,11 @@ function openUserModal() {
   document.getElementById("user-form").reset();
   document.getElementById("user-form-alert").innerHTML = "";
   toggleUserCabangField("user-role", "user-cabang-field");
+  // .reset() di atas cuma mengosongkan NILAI field, bukan mengembalikan
+  // type="password" kalau sebelumnya sempat ditoggle jadi "text" lewat
+  // tombol mata -- disetel manual di sini supaya selalu mulai tersembunyi.
+  document.getElementById("user-password").type = "password";
+  document.getElementById("user-password-toggle-icon").className = "ph-bold ph-eye";
   document.getElementById("user-modal").style.display = "flex";
 }
 function closeUserModal() {
@@ -282,19 +299,38 @@ document.addEventListener("DOMContentLoaded", () => {
     // ikut tergantikan oleh akun baru yang baru dibuat (batasan Firebase Auth
     // client-side: createUser otomatis login sebagai user itu di instance yang dipakai).
     let secondaryApp;
+    let cred;
     try {
       secondaryApp = firebase.apps.find((a) => a.name === "Secondary") ||
         firebase.initializeApp(firebaseConfig, "Secondary");
       const secondaryAuth = secondaryApp.auth();
-      const cred = await secondaryAuth.createUserWithEmailAndPassword(usernameToEmail(username), password);
-      await db.collection("users").doc(cred.user.uid).set({
-        username,
-        full_name: fullName,
-        role,
-        cabang_id: role === "karyawan" ? cabangId : null,
-        is_active: true,
-        created_at: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      cred = await secondaryAuth.createUserWithEmailAndPassword(usernameToEmail(username), password);
+      try {
+        await db.collection("users").doc(cred.user.uid).set({
+          username,
+          full_name: fullName,
+          role,
+          cabang_id: role === "karyawan" ? cabangId : null,
+          is_active: true,
+          created_at: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch (profileErr) {
+        // PERBAIKAN: akun Auth di atas SUDAH TERLANJUR dibuat sebelum baris
+        // ini gagal -- sebelumnya kalau gagal di sini, akun Auth itu
+        // dibiarkan "yatim" (bisa login, tapi tidak ada profil Firestore-nya
+        // -- login berikutnya gagal dengan "akun tidak ditemukan", padahal
+        // username itu sudah "kepakai" selamanya). Sekarang: hapus lagi akun
+        // Auth yang baru dibuat itu (masih bisa, karena secondaryAuth MASIH
+        // login sebagai akun itu persis setelah createUserWithEmailAndPassword)
+        // supaya usernamenya bisa dicoba lagi, lalu lempar error aslinya ke
+        // blok catch luar seperti biasa.
+        try {
+          await cred.user.delete();
+        } catch (rollbackErr) {
+          console.warn("Gagal rollback akun Auth yatim (" + cred.user.uid + "):", rollbackErr);
+        }
+        throw profileErr;
+      }
       // Ditulis lewat SESI PRIMER (Owner yang sedang login), bukan
       // secondaryAuth -- node roles/{uid} akun baru ini butuh penulisnya
       // (auth.uid di Rules) sudah tercatat sebagai "owner", dan itu cuma

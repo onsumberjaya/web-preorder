@@ -16,8 +16,8 @@
 <meta name="apple-mobile-web-app-title" content="Benih Preorder" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/@phosphor-icons/web"></script>
-<script src="js/pwa-register.js?v=9"></script>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2"></script>
+<script src="js/pwa-register.js?v=10"></script>
 </head>
 <body data-allowed-roles="owner,admin_kasir">
   <div id="mobile-topbar"></div>
@@ -76,7 +76,7 @@
       </div>
 
       <!-- ============ RESTORE DARI FILE BACKUP ============ -->
-      <div class="card">
+      <div class="card" id="ar-restore-card">
         <div class="card-heading" style="margin-bottom:10px;">
           <span class="card-heading-icon"><i class="ph-bold ph-upload-simple"></i></span>
           <h3>Restore dari File Backup</h3>
@@ -87,18 +87,26 @@
         </div>
         <div id="ar-restore-preview"></div>
       </div>
+      <div class="card" id="ar-restore-owner-only-note" style="display:none;">
+        <div class="card-heading" style="margin-bottom:10px;">
+          <span class="card-heading-icon"><i class="ph-bold ph-upload-simple"></i></span>
+          <h3>Restore dari File Backup</h3>
+        </div>
+        <p style="font-size:13px; color:var(--gray-500); margin:0;">Restore data (menulis ulang pesanan lama ke database) khusus Owner -- ini setara mengimpor data mentah, jadi sengaja dibatasi lebih ketat daripada Backup. Silakan minta Owner membuka halaman ini kalau perlu me-restore file backup.</p>
+      </div>
     </main>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=9"></script>
-  <script src="js/utils.js?v=9"></script>
-  <script src="js/nav.js?v=9"></script>
-  <script src="js/auth-guard.js?v=9"></script>
-  <script src="js/presence.js?v=9"></script>
-  <script src="js/arsip.js?v=9"></script>
+  <script src="js/firebase-config.js?v=10"></script>
+  <script src="js/utils.js?v=10"></script>
+  <script src="js/nav.js?v=10"></script>
+  <script src="js/auth-guard.js?v=10"></script>
+  <script src="js/presence.js?v=10"></script>
+  <script src="js/arsip.js?v=10"></script>
 </body>
 </html>

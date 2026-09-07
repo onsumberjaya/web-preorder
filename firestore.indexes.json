@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "cabang_id", "order": "ASCENDING" },
+        { "fieldPath": "tanggal", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

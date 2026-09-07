@@ -66,9 +66,33 @@ function toMillis(value) {
   return isNaN(d) ? 0 : d.getTime();
 }
 
+// Ubah objek Date jadi string "YYYY-MM-DD" berdasarkan TANGGAL KALENDER
+// LOKAL (sesuai jam di perangkat, mis. WIB), BUKAN toISOString() yang
+// berbasis UTC.
+//
+// PERBAIKAN: sebelumnya banyak tempat di aplikasi ini pakai
+// `d.toISOString().slice(0, 10)` untuk dapat string tanggal. Itu keliru
+// karena toISOString() mengambil TANGGAL UTC dari momen itu, bukan tanggal
+// kalender lokal. Di Indonesia (WIB = UTC+7, tidak ada perubahan musim),
+// tengah malam lokal (00:00 WIB) itu masih jam 17:00 HARI SEBELUMNYA
+// menurut UTC. Akibatnya:
+// - Antara jam 00:00-06:59 WIB, default tanggal "hari ini" di form Input
+//   Pesanan / filter Daftar Pesanan & Laporan jadi menunjukkan KEMARIN.
+// - Tanggal pesanan yang disimpan sebagai tengah malam lokal (lihat pola
+//   `new Date(tanggal + "T00:00:00")` di seluruh aplikasi) SELALU muncul
+//   mundur 1 hari kalau dibaca ulang lewat toISOString() -- misalnya di
+//   grafik tren Dashboard atau saat membuka Edit Pesanan.
+// Pakai fungsi ini untuk SEMUA kebutuhan "ubah Date jadi YYYY-MM-DD",
+// gantinya toISOString().slice(0, 10).
+function localYmd(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function todayInputValue() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return localYmd(new Date());
 }
 
 function escapeHtml(str) {
@@ -137,12 +161,30 @@ function friendlyFirebaseError(err) {
 // (Penomoran untuk pesanan BARU dilakukan langsung di dalam transaksi
 // penyimpanan pesanan di js/input-pesanan.js, bukan lewat fungsi terpisah,
 // supaya penomoran & penyimpanan pesanan atomik dalam 1 transaksi yang sama.)
-async function getNextNotaSeq(year) {
+// Sama seperti getNextNotaSeq(), TAPI sekaligus menuliskan nomor nota yang
+// baru diambil itu ke pesanan lama yang ditunjuk -- keduanya (naikkan
+// counter + tulis ke pesanan) jadi 1 TRANSAKSI ATOMIK yang sama, bukan 2
+// operasi terpisah. Dipakai oleh fixDuplicateNotaNumbers() di js/laporan.js
+// untuk menomori ulang pesanan lama yang belum punya nota_seq/nota_tahun.
+//
+// PERBAIKAN: sebelumnya fixDuplicateNotaNumbers() memanggil getNextNotaSeq()
+// (menaikkan counter) LALU baru .update() pesanannya sebagai 2 langkah
+// terpisah -- persis pola "nomor nota terbuang" yang justru sudah dihindari
+// dengan hati-hati di alur pembuatan pesanan BARU (lihat catatan di atas).
+// Kalau .update() gagal di tengah jalan (mis. koneksi putus), counter sudah
+// terlanjur naik tapi nomornya tidak pernah tertempel ke pesanan mana pun --
+// bukan nomor bentrok/dobel, cuma ada lubang di urutan nomor nota. Sekarang
+// keduanya digabung jadi 1 transaksi: kalau .update()-nya gagal (mis. pesanan
+// itu sudah keburu dihapus orang lain), SELURUH transaksi (termasuk kenaikan
+// counter-nya) ikut dibatalkan, jadi tidak ada nomor yang terbuang percuma.
+async function assignLegacyNotaSeqAtomic(orderId, year) {
   const yearRef = db.collection("counters").doc("nota-" + year);
+  const orderRef = db.collection("orders").doc(orderId);
   return db.runTransaction(async (tx) => {
     const yearDoc = await tx.get(yearRef);
     const nextYear = (yearDoc.exists ? yearDoc.data().seq || 0 : 0) + 1;
     tx.set(yearRef, { seq: nextYear }, { merge: true });
+    tx.update(orderRef, { nota_tahun: year, nota_seq: nextYear });
     return { nota_tahun: year, nota_seq: nextYear };
   });
 }
@@ -200,6 +242,21 @@ function toWaNumber(noHp) {
   if (n.startsWith("0")) n = "62" + n.slice(1);
   else if (!n.startsWith("62")) n = "62" + n;
   return n;
+}
+
+// Validasi ringan format No. HP Indonesia sebelum pesanan disimpan --
+// sengaja TETAP BOLEH DIKOSONGKAN (bukan wajib diisi, ada kalanya pembeli
+// memang tidak kasih nomor), tapi KALAU diisi, formatnya dicek supaya tidak
+// ada yang kesimpan salah ketik/format aneh yang bikin tombol "Kirim WA"
+// nanti diam-diam membuka nomor yang salah/acak (lihat toWaNumber() di
+// atas -- fungsi itu menerima APA SAJA yang mengandung angka, tidak
+// memvalidasi bentuknya). Pola yang diterima: diawali 0 / 62 / +62, diikuti
+// 8, lalu 7-11 digit lagi (total kira-kira 10-13 digit gaya 08xxxxxxxxx).
+function isValidNoHp(noHp) {
+  const trimmed = String(noHp || "").trim();
+  if (!trimmed) return true;
+  const cleaned = trimmed.replace(/[\s-]/g, "");
+  return /^(0|62|\+62)8[0-9]{7,11}$/.test(cleaned);
 }
 
 function openWaLink(noHp, message) {
@@ -555,10 +612,11 @@ function updateThemeToggleUI(theme) {
   if (sw) sw.classList.toggle("on", theme === "dark");
 }
 
-// ---------- Nonaktifkan klik kanan ----------
-// Cuma pencegah ringan (orang awam tidak bisa klik kanan > "Inspect" atau
-// "Save As" dengan gampang) -- BUKAN proteksi keamanan sungguhan. Orang yang
-// paham teknis tetap bisa buka DevTools lewat keyboard shortcut atau menu
-// browser sendiri. Berlaku di semua halaman karena utils.js dimuat di semua
-// halaman aplikasi.
-document.addEventListener("contextmenu", (e) => e.preventDefault());
+// ---------- (Dihapus) Blokir klik kanan ----------
+// PERBAIKAN: sebelumnya semua halaman mematikan klik kanan lewat
+// `document.addEventListener("contextmenu", (e) => e.preventDefault())`.
+// Ini dihapus karena cuma mengganggu pemakaian normal (kasir jadi tidak
+// bisa klik kanan > copy nomor HP/alamat pembeli untuk ditempel ke WhatsApp
+// atau aplikasi lain) tanpa memberi proteksi keamanan yang nyata -- siapa
+// pun yang paham teknis tetap bisa buka DevTools lewat keyboard shortcut
+// atau menu browser, klik kanan cuma satu dari banyak cara masuk ke situ.

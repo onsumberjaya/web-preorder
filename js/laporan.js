@@ -15,7 +15,7 @@ let lapProfile = null;
 function defaultLapDari() {
   const d = new Date();
   d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return localYmd(d);
 }
 
 // Ambil pesanan sesuai rentang tanggal yang dipilih (default: 30 hari
@@ -58,7 +58,7 @@ window.onAuthReady = async function (profile) {
     lapShowCabang = canAccessAllBranches(profile);
 
     document.getElementById("lap-dari").value = defaultLapDari();
-    document.getElementById("lap-sampai").value = new Date().toISOString().slice(0, 10);
+    document.getElementById("lap-sampai").value = localYmd(new Date());
 
     const [prodSnap, cabangSnap, tokoDoc] = await Promise.all([
       db.collection("products").orderBy("nama").get(),
@@ -304,11 +304,7 @@ async function fixDuplicateNotaNumbers() {
       const year = order.tanggal
         ? (order.tanggal.toDate ? order.tanggal.toDate() : new Date(order.tanggal)).getFullYear()
         : new Date().getFullYear();
-      const ids = await getNextNotaSeq(year);
-      await db.collection("orders").doc(order.id).update({
-        nota_tahun: ids.nota_tahun,
-        nota_seq: ids.nota_seq,
-      });
+      const ids = await assignLegacyNotaSeqAtomic(order.id, year);
       order.nota_tahun = ids.nota_tahun;
       order.nota_seq = ids.nota_seq;
       fixed++;

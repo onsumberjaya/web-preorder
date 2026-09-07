@@ -227,7 +227,7 @@ function renderForm() {
   const noHpVal = isEdit ? editOrderData.no_hp || "" : "";
   const catatanVal = isEdit ? editOrderData.catatan || "" : "";
   const tanggalVal = isEdit && editOrderData.tanggal
-    ? (editOrderData.tanggal.toDate ? editOrderData.tanggal.toDate() : new Date(editOrderData.tanggal)).toISOString().slice(0, 10)
+    ? localYmd(editOrderData.tanggal.toDate ? editOrderData.tanggal.toDate() : new Date(editOrderData.tanggal))
     : todayInputValue();
 
   const profile = window.currentUserProfile;
@@ -325,6 +325,11 @@ function renderForm() {
         <div id="summary-body"></div>
       </div>
     </div>
+
+    <div id="mobile-sticky-total">
+      <span style="font-size:13px; color:var(--gray-500); font-weight:600;">Total Pesanan</span>
+      <strong id="f-total-mobile" style="font-size:17px; color:var(--brand-700);">Rp 0</strong>
+    </div>
   `;
 
   renderLineItems();
@@ -332,7 +337,14 @@ function renderForm() {
   const bayarInput = document.getElementById("f-bayar");
   if (bayarInput) bayarInput.addEventListener("input", updateTotalDisplay);
   document.getElementById("f-nama").addEventListener("input", updateSummaryPanel);
-  updateSummaryPanel();
+  // PERBAIKAN: sebelumnya di sini cuma updateSummaryPanel() -- #f-total (&
+  // #f-total-mobile) baru terisi angka yang benar setelah ada interaksi
+  // (ubah jumlah/ubah bayar), jadi kalau baru buka Edit Pesanan untuk
+  // pesanan yang totalnya BUKAN Rp 0, sekilas malah kelihatan "Rp 0" dulu
+  // sebelum sempat disentuh. updateTotalDisplay() memanggil
+  // updateSummaryPanel() juga di dalamnya, jadi ini pengganti langsung,
+  // bukan tambahan panggilan baru.
+  updateTotalDisplay();
 }
 
 function updateSummaryPanel() {
@@ -448,7 +460,7 @@ function renderLineItems() {
             <option value="">Gelombang</option>
             ${waveOptions}
           </select>
-          <input type="number" min="0" placeholder="Jumlah" value="${escapeHtml(line.jumlah)}" oninput="updateLine(${line.key}, 'jumlah', this.value)" />
+          <input type="number" min="1" placeholder="Jumlah" value="${escapeHtml(line.jumlah)}" oninput="updateLine(${line.key}, 'jumlah', this.value)" />
         </div>
         <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:12.5px; color:var(--gray-500);">
           <span>Harga satuan: ${line.product_id && line.wave_id ? formatRupiah(info.hargaSatuan) : "-"}</span>
@@ -502,6 +514,12 @@ function updateTotalDisplay() {
   const total = grandTotal();
   const totalEl = document.getElementById("f-total");
   if (totalEl) totalEl.textContent = formatRupiah(total);
+  // Bar total mengambang khusus layar sempit (<980px) -- lihat CSS
+  // #mobile-sticky-total di css/style.css. Diperbarui bersamaan dengan
+  // #f-total supaya keduanya selalu sinkron, walau cuma satu yang
+  // kelihatan tergantung lebar layar.
+  const totalMobileEl = document.getElementById("f-total-mobile");
+  if (totalMobileEl) totalMobileEl.textContent = formatRupiah(total);
   updateSummaryPanel();
 }
 
@@ -539,6 +557,12 @@ async function handleSubmit(e) {
   if (alamatCek.length < 3) {
     alertBox.innerHTML = `<div class="alert alert-error">Alamat wajib diisi, minimal 3 karakter.</div>`;
     document.getElementById("f-alamat").focus();
+    return;
+  }
+  const noHpCek = document.getElementById("f-nohp").value.trim();
+  if (!isValidNoHp(noHpCek)) {
+    alertBox.innerHTML = `<div class="alert alert-error">Format No. HP tidak valid. Contoh yang benar: 08123456789 (boleh dikosongkan kalau memang tidak ada).</div>`;
+    document.getElementById("f-nohp").focus();
     return;
   }
 
@@ -651,6 +675,20 @@ async function handleSubmit(e) {
         const newDataForLog = { nama_pembeli: namaPembeli, alamat, no_hp: noHp, catatan, items: itemsData, total };
         const ringkasan = buildEditSummary(freshOrder, newDataForLog);
 
+        // PERBAIKAN: sebelumnya pakai FieldValue.arrayUnion() tanpa batas --
+        // dokumen Firestore maksimal ~1 MB, jadi pesanan yang sudah diedit
+        // puluhan-ratusan kali berisiko GAGAL tersimpan gara-gara edit_log-nya
+        // sendiri yang membengkak, bukan datanya. Sekarang dibaca manual dari
+        // freshOrder (sudah dibaca di atas) lalu dipotong maksimal 30 entri
+        // TERBARU sebelum ditulis balik -- riwayat edit yang sangat lama
+        // hilang, tapi itu wajar (30 kali edit untuk 1 pesanan sudah sangat
+        // jarang terjadi dalam pemakaian normal).
+        const existingEditLog = Array.isArray(freshOrder.edit_log) ? freshOrder.edit_log : [];
+        const editLog = [
+          ...existingEditLog,
+          { by: profile.uid, by_name: profile.full_name || profile.username || "-", at: new Date(), ringkasan },
+        ].slice(-30);
+
         // Rekap stats/produk_cabang & stats/produk_gelombang: sesuaikan
         // selisih qty lama -> baru (bisa saja Owner ganti produk/gelombang/
         // jumlah di form Edit Pesanan penuh ini).
@@ -671,14 +709,7 @@ async function handleSubmit(e) {
           total,
           paid_amount: freshPaidAmount,
           status_bayar: computeStatusBayar(total, freshPaidAmount),
-          // Dipakai FieldValue.arrayUnion() (bukan serverTimestamp) karena
-          // Firestore tidak mengizinkan sentinel serverTimestamp di dalam array.
-          edit_log: firebase.firestore.FieldValue.arrayUnion({
-            by: profile.uid,
-            by_name: profile.full_name || profile.username || "-",
-            at: new Date(),
-            ringkasan,
-          }),
+          edit_log: editLog,
         });
       });
       showToast("Pesanan berhasil diperbarui.", "success");

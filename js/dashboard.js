@@ -276,10 +276,10 @@ function buildTimeSeries(orders, granularitas) {
       monday.setHours(0, 0, 0, 0);
       const sunday = new Date(monday);
       sunday.setDate(monday.getDate() + 6);
-      key = monday.toISOString().slice(0, 10);
+      key = localYmd(monday);
       label = `${monday.getDate()}/${monday.getMonth() + 1}-${sunday.getDate()}/${sunday.getMonth() + 1}`;
     } else {
-      key = d.toISOString().slice(0, 10);
+      key = localYmd(d);
       label = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
     }
     if (!buckets[key]) buckets[key] = { label, count: 0, uang: 0, perProduk: {} };

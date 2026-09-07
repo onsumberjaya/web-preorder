@@ -19,6 +19,17 @@ window.onAuthReady = async function (profile) {
   try {
     arProfile = profile;
 
+    // PERBAIKAN: Restore (menulis ulang pesanan lama ke database, dengan
+    // created_by bebas) dikunci ke Owner saja -- ini setara "impor data
+    // mentah", lebih berisiko daripada Backup (yang cuma membaca/mengunduh,
+    // tidak mengubah database) sehingga sengaja dibatasi lebih ketat.
+    // Admin Kasir tetap bisa mengakses halaman ini & memakai Backup seperti
+    // biasa, cuma kartu Restore-nya diganti catatan penjelasan.
+    if (profile.role !== "owner") {
+      document.getElementById("ar-restore-card").style.display = "none";
+      document.getElementById("ar-restore-owner-only-note").style.display = "";
+    }
+
     const [prodSnap, cabangSnap, tokoDoc] = await Promise.all([
       db.collection("products").orderBy("nama").get(),
       db.collection("cabang").orderBy("nama").get(),
@@ -385,6 +396,13 @@ function handleRestoreFileSelected(e) {
 }
 
 async function restoreArsipData() {
+  // Jaga-jaga lapis kedua (di luar kartu yang disembunyikan di UI untuk
+  // non-Owner di atas) -- kalau sampai fungsi ini terpanggil lewat cara lain
+  // (mis. dari console browser) oleh Admin Kasir, tetap ditolak di sini.
+  if (!arProfile || arProfile.role !== "owner") {
+    showToast("Restore data khusus Owner.", "error");
+    return;
+  }
   if (!arRestorePayload) return;
   const orders = arRestorePayload.orders;
   if (

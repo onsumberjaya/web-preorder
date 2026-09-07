@@ -379,6 +379,33 @@ input[type="checkbox"]:focus, input[type="radio"]:focus {
 }
 @media (max-width: 979px) {
   .order-summary-col { display: none; }
+  /* PERBAIKAN: di layar sempit, panel "Ringkasan Pesanan" (rincian item +
+     status bayar + sisa) di atas memang disembunyikan supaya tidak makan
+     tempat -- TAPI sebelumnya itu berarti kasir/karyawan yang input pesanan
+     dari HP baru bisa cek TOTAL-nya kalau sudah scroll ke bawah form, jauh
+     sesudah pilih produk. Sekarang ada bar total mengambang di bawah layar
+     (lihat #mobile-sticky-total) yang selalu kelihatan sambil isi form,
+     supaya tidak perlu scroll bolak-balik cuma buat cek total berjalan.
+     order-form-col diberi padding-bawah ekstra supaya tombol Simpan di
+     ujung form tidak ketutup bar ini. */
+  .order-form-col { padding-bottom: 66px; }
+  #mobile-sticky-total {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    background: var(--surface);
+    border-top: 1px solid var(--gray-200);
+    padding: 12px 16px;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.12);
+  }
+}
+@media (min-width: 980px) {
+  #mobile-sticky-total { display: none; }
 }
 .summary-item-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 7px 0; border-bottom: 1px solid var(--gray-100); }
 .summary-item-row:last-of-type { border-bottom: none; }

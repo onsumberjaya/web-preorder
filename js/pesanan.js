@@ -4,7 +4,7 @@ let allCabangMap = {};
 let selectedIds = new Set();
 let currentProfile = null;
 let currentPage = 1;
-let pageSize = 15;
+let pageSize = 11; // PERBAIKAN: sebelumnya 15, tidak cocok dengan <option value="11" selected> di pesanan.html -- baris pertama yang ditampilkan salah jumlah sebelum user mengubah dropdownnya sendiri.
 let tokoProfil = { nama: "Toko Kami" }; // dipakai di teks pesan WA, dimuat sekali di onAuthReady
 
 // Kotak centang per pesanan disembunyikan sampai kotak centang di header
@@ -18,7 +18,7 @@ let checkboxesRevealed = false;
 function defaultDariTanggal() {
   const d = new Date();
   d.setDate(d.getDate() - 30);
-  return d.toISOString().slice(0, 10);
+  return localYmd(d);
 }
 
 // Tombol "Filter" di pojok kanan atas -- kotak filter disembunyikan
@@ -49,7 +49,7 @@ function startEndOfThisWeek() {
   monday.setDate(now.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return { senin: monday.toISOString().slice(0, 10), minggu: sunday.toISOString().slice(0, 10) };
+  return { senin: localYmd(monday), minggu: localYmd(sunday) };
 }
 
 function clearQuickFilterActive() {
@@ -125,7 +125,7 @@ window.onAuthReady = function (profile) {
   // spesifik, bisa saja dari bulan lalu, jangan sampai tidak ketemu gara-gara
   // kena batas tanggal default.
   document.getElementById("filter-dari").value = fromAnomaliLink || cariDariTopbar ? "" : defaultDariTanggal();
-  document.getElementById("filter-sampai").value = fromAnomaliLink || cariDariTopbar ? "" : new Date().toISOString().slice(0, 10);
+  document.getElementById("filter-sampai").value = fromAnomaliLink || cariDariTopbar ? "" : localYmd(new Date());
   if (fromAnomaliLink) {
     document.getElementById("filter-harga-janggal").checked = true;
     document.getElementById("anomali-chip").classList.add("active");
@@ -406,9 +406,9 @@ function resetFilters() {
 
   const dariEl = document.getElementById("filter-dari");
   const sampaiEl = document.getElementById("filter-sampai");
-  const rangeChanged = dariEl.value !== defaultDariTanggal() || sampaiEl.value !== new Date().toISOString().slice(0, 10);
+  const rangeChanged = dariEl.value !== defaultDariTanggal() || sampaiEl.value !== localYmd(new Date());
   dariEl.value = defaultDariTanggal();
-  sampaiEl.value = new Date().toISOString().slice(0, 10);
+  sampaiEl.value = localYmd(new Date());
 
   if (rangeChanged) loadOrders();
   else renderOrders();

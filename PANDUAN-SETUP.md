@@ -66,6 +66,53 @@ ini tidak diperlukan -- aplikasi tetap jalan normal tanpanya.
 5. Buka file `js/firebase-config.js` di folder project ini pakai Notepad.
 6. Ganti bagian `firebaseConfig` di file itu dengan yang baru saja Anda copy. Simpan file.
 
+### 1f. (Opsional, SANGAT disarankan) Aktifkan App Check
+`firebaseConfig` di atas (termasuk `apiKey`) memang publik dan itu wajar untuk aplikasi Firebase
+manapun -- keamanan sesungguhnya ada di Rules, bukan di kerahasiaan `apiKey`. TAPI tanpa App Check,
+siapa pun yang menyalin `apiKey` itu dari "View Source" bisa memakainya mengirim request langsung ke
+Firestore Anda dari LUAR aplikasi ini (skrip sendiri, bukan lewat halaman web ini) -- bukan untuk
+mencuri/mengubah data (Rules tetap menahan itu), tapi bisa dipakai untuk SPAM baca/tulis sampai kuota
+gratis harian Firebase habis. App Check menutup celah itu.
+
+> ⚠️ **Ikuti urutan ini PERSIS.** Kalau langkah "Enforce" di bagian akhir dilakukan TERLALU CEPAT
+> (sebelum kode dengan site key sungguhan sudah online & semua staf sempat buka ulang aplikasinya),
+> Anda berisiko mengunci akses SEMUA ORANG termasuk diri Anda sendiri, karena request tanpa App Check
+> yang valid akan ditolak Firebase -- termasuk dari browser yang masih memuat versi lama halaman ini.
+
+1. **Daftarkan reCAPTCHA v3.** Buka [google.com/recaptcha/admin/create](https://www.google.com/recaptcha/admin/create).
+   - Label: bebas, mis. `Preorder Benih Web`.
+   - Jenis reCAPTCHA: pilih **reCAPTCHA v3**.
+   - Domain: isi domain GitHub Pages Anda (mis. `namaanda.github.io`) -- kalau mau coba lokal juga,
+     tambah baris domain lagi: `localhost`.
+   - Setujui Persyaratan Layanan → **Submit**.
+   - Akan muncul 2 kunci: **Site Key** (publik) dan **Secret Key** (rahasia, JANGAN taruh di kode).
+     Salin keduanya, akan dipakai di langkah 2 & 3.
+2. **Daftarkan ke Firebase Console.** Menu kiri → **Build → App Check** → klik app web Anda →
+   pilih provider **reCAPTCHA v3** → tempel **Secret Key** dari langkah 1 → **Save**.
+3. **Isi Site Key ke kode.** Buka `js/firebase-config.js`, cari baris
+   `const RECAPTCHA_V3_SITE_KEY = "GANTI_DENGAN_RECAPTCHA_V3_SITE_KEY";`, ganti isinya dengan
+   **Site Key** (bukan Secret Key!) dari langkah 1. Simpan file.
+4. **Upload & tunggu.** Ikuti Bagian 5 (atau 5c kalau ini update, bukan instalasi baru) untuk
+   mengunggah perubahan ini ke GitHub Pages seperti biasa. **Rules TIDAK berubah di langkah ini**,
+   jadi tidak perlu publish ulang Rules -- cukup upload kodenya saja.
+5. **Pantau dulu, JANGAN langsung di-enforce.** Balik ke Firebase Console → **App Check** → tab
+   **Apps**, lihat metrik "Verified requests" untuk Firestore (dan Realtime Database kalau dipakai).
+   Biarkan **minimal 1-2 hari** supaya semua staf sempat membuka ulang aplikasinya (otomatis dapat
+   versi baru) dan grafiknya didominasi "Verified". Selama masa ini App Check baru MEMANTAU, belum
+   MEMBLOKIR apa pun -- aplikasi tetap 100% jalan normal seperti biasa.
+6. **Baru aktifkan "Enforce".** Setelah yakin verified request sudah dominan: App Check → pilih
+   **Firestore Database** → toggle **Enforce**. Kalau Anda pakai Realtime Database (fitur "Karyawan
+   Online"), ulangi untuk **Realtime Database** juga. Mulai titik ini, request tanpa App Check yang
+   valid akan ditolak.
+
+> Catatan: kalau nanti pindah/tambah domain (mis. beli domain sendiri seperti `tokobenih.com`, lihat
+> "Batasan yang Perlu Diketahui" di bawah), domain baru itu WAJIB ditambahkan ke daftar domain
+> reCAPTCHA di langkah 1 juga (edit lewat halaman reCAPTCHA admin) -- kalau lupa, App Check akan
+> menolak pengunjung dari domain baru itu meski kodenya sama persis.
+>
+> Lewati seluruh bagian ini kalau belum siap -- aplikasi tetap berjalan penuh tanpa App Check, cuma
+> tanpa pagar tambahan ini (lihat komentar `RECAPTCHA_V3_SITE_KEY` di `js/firebase-config.js`).
+
 ---
 
 ## BAGIAN 2 — Buat Akun Owner Pertama (manual, sekali saja)
@@ -129,11 +176,17 @@ Kalau sebelumnya Anda sudah pakai aplikasi ini (sudah ada pesanan & akun karyawa
 
 ### 3c. Ringkasan 3 role yang tersedia
 
-| Role | Lihat pesanan | Edit isi pesanan | Tandai Lunas / Ambil | Input Pesanan | Laporan & Export | Produk / Akun / Toko / Cabang |
-|---|---|---|---|---|---|---|
-| **Owner** | Semua cabang | Ya | Semua cabang | Semua cabang (pilih cabang) | Semua cabang | Ya |
-| **Admin Kasir** | Semua cabang | Tidak | Semua cabang | Semua cabang (pilih cabang) | Semua cabang | Tidak |
-| **Karyawan** (per cabang) | Cabang sendiri saja | Tidak | Cabang sendiri saja | Cabang sendiri (terkunci) | Cabang sendiri saja | Tidak |
+| Role | Lihat pesanan | Edit isi pesanan | Tandai Lunas / Ambil | Input Pesanan | Laporan & Export | Kelola Produk | Akun / Toko / Cabang |
+|---|---|---|---|---|---|---|---|
+| **Owner** | Semua cabang | Ya | Semua cabang | Semua cabang (pilih cabang) | Semua cabang | Ya (termasuk hapus) | Ya |
+| **Admin Kasir** | Semua cabang | Ya | Semua cabang | Semua cabang (pilih cabang) | Semua cabang | Ya (termasuk hapus) | Tidak |
+| **Karyawan** (per cabang) | Cabang sendiri saja | Ya, pesanan cabang sendiri | Cabang sendiri saja | Cabang sendiri (terkunci) | Cabang sendiri saja | Tidak (cuma lihat) | Tidak |
+
+> ⚠️ Baik Admin Kasir maupun Karyawan cabang BOLEH mengedit isi pesanan sepenuhnya (item, total,
+> data pembeli) untuk pesanan yang boleh mereka akses -- bukan cuma tandai lunas/ambil. Hapus
+> pesanan tetap khusus Owner. Kalau Anda butuh batasan yang lebih ketat dari ini (mis. Admin Kasir
+> tidak boleh menghapus produk), itu perlu diubah langsung di `firestore.rules` (match /products/{productId})
+> dan `js/input-pesanan.js` -- tabel di atas menggambarkan kode APA ADANYA, bukan rekomendasi.
 
 Buat akun barunya lewat menu **Akun Pengguna** seperti biasa. Untuk role **Karyawan**, akan muncul field tambahan untuk memilih cabang mana yang dikunci ke akun itu — sekali dipilih & disimpan, akun itu selamanya hanya bisa mengakses pesanan cabang tersebut, bahkan Firestore sendiri (bukan cuma tampilannya) yang menolak permintaan datanya kalau mencoba mengakses cabang lain.
 
@@ -146,6 +199,17 @@ Firestore kadang perlu "index" tambahan untuk query yang dibatasi per cabang (di
 
 Ini cukup dilakukan **sekali** per halaman (biasanya total 2-3 index untuk seluruh aplikasi), bukan berulang tiap ada Karyawan baru.
 
+> **(Opsional) Cara lain lewat file `firestore.indexes.json`.** Folder project ini juga menyertakan
+> `firestore.indexes.json` & `firebase.json` -- isinya definisi index yang sama seperti di atas
+> (`orders`: `cabang_id` + `tanggal`), cuma dalam bentuk file. Kegunaannya cuma buat yang sudah
+> pasang [Firebase CLI](https://firebase.google.com/docs/cli) (`npm install -g firebase-tools`,
+> butuh Node.js) -- kalau ya, tinggal jalankan `firebase deploy --only firestore:indexes` sekali dari
+> folder project ini dan index-nya langsung terpasang otomatis, tidak perlu mancing error dulu satu
+> per satu. **Anda TIDAK WAJIB pakai cara ini** -- kalau tidak familiar dengan CLI/Node.js, cara klik
+> link error di atas sudah cukup dan tidak akan pernah ketinggalan, jadi boleh dilewati sepenuhnya.
+> Berguna terutama kalau nanti Anda pindah ke project Firebase baru (mis. migrasi akun Google) dan
+> mau semua index langsung siap tanpa perlu login-mancing-error ulang di tiap halaman.
+
 ---
 
 ## BAGIAN 4 — Coba Dulu di Komputer (tanpa install apapun)
@@ -157,6 +221,9 @@ Karena file-nya HTML biasa, Anda bisa buka langsung:
 
 > Catatan: sebagian browser membatasi fitur tertentu saat membuka file HTML langsung (`file://`).
 > Kalau ada kejanggalan, lanjut saja ke Bagian 5 (hosting online) — di sana semua akan berjalan normal.
+> App Check (Bagian 1f) khususnya TIDAK bisa diverifikasi lewat `file://` sama sekali (perlu domain
+> asli) -- kalau Anda mengaktifkannya, wajar kalau App Check baru terlihat berfungsi setelah online
+> di GitHub Pages (Bagian 5), bukan pas dicoba dengan cara klik dua kali ini.
 
 Setelah login, langsung isi dulu:
 - **Profil Toko** — nama, alamat, no HP toko Anda
@@ -217,12 +284,32 @@ Setiap kali Anda edit file (misalnya minta saya tambah fitur lagi), tinggal:
 
 ## Batasan yang Perlu Diketahui
 
+- **"1 sesi login per perangkat" cuma PERINGATAN, bukan KUNCI sungguhan.** Kalau akun yang sama
+  login di HP/laptop baru, sesi di perangkat lama akan dapat pesan "Sesi Anda Diakhiri" dan diarahkan
+  keluar -- ini cukup untuk mencegah kejadian tidak sengaja (kasir lupa sudah pernah login di HP lain)
+  dan berjalan hampir seketika (real-time). TAPI ini murni pengecekan di APLIKASI (browser), BUKAN di
+  Firestore Rules -- secara teknis, kalau seseorang SUDAH TERLANJUR membuka DevTools browser di
+  perangkat lama SEBELUM pesan itu muncul (atau sengaja menutup paksa notifikasinya), token login di
+  perangkat itu SECARA TEKNIS masih sah menurut Firebase dan bisa dipakai baca/tulis data lewat
+  Console browser, sampai orang itu logout manual atau tokennya kedaluwarsa sendiri.
+  Kenapa tidak bisa dikunci lebih ketat: Firestore Rules cuma bisa membaca *siapa* yang login
+  (`request.auth.uid`), bukan *dari sesi/perangkat mana* request itu dikirim -- membedakan itu perlu
+  "custom claim" di token, yang cuma bisa diset lewat Firebase Admin SDK (artinya wajib ada server/
+  Cloud Function). Aplikasi ini sengaja dibuat 100% tanpa server supaya bisa gratis selamanya di
+  GitHub Pages, jadi batasan ini diterima sebagai konsekuensinya -- BUKAN sesuatu yang lupa
+  dikerjakan. Risikonya juga tergolong rendah: ini bukan celah yang bisa dipakai ORANG ASING dari
+  luar (tetap wajib sudah pernah login sah di perangkat itu duluan) -- risikonya lebih ke arah
+  "mantan karyawan yang HP kerjanya belum sempat di-logout sebelum resign". Kalau itu jadi
+  kekhawatiran nyata di toko Anda: nonaktifkan akunnya (halaman Akun Pengguna) begitu orangnya
+  resign/lepas tugas -- begitu `is_active` dimatikan, Rules-nya SUNGGUH menolak SEMUA akses akun itu
+  (ini BUKAN batasan seperti di atas, ini benar-benar tertutup, dicek di Rules setiap request).
 - **Ganti password**: Owner tidak bisa langsung mengatur ulang password akun karyawan lain (batasan
   keamanan Firebase tanpa server backend). Tiap orang ganti password sendiri lewat menu
   "Ganti Password Saya" di sidebar. Kalau karyawan lupa password, solusinya: nonaktifkan akun lama,
   buat akun baru untuknya.
 - **Domain**: alamat `namaanda.github.io/...` gratis selamanya. Kalau nanti ingin domain sendiri
   seperti `tokobenih.com`, itu perlu beli domain (~Rp150rb/tahun) lalu dihubungkan ke GitHub Pages
-  (saya bisa bantu kalau saatnya tiba).
+  (saya bisa bantu kalau saatnya tiba). Kalau App Check (Bagian 1f) sudah diaktifkan, jangan lupa
+  tambahkan domain baru itu ke daftar domain reCAPTCHA juga -- lihat catatan di Bagian 1f.
 - **Batas gratis Firebase**: sangat longgar untuk toko kecil-menengah (50.000 baca data per hari,
   20.000 tulis per hari) — kemungkinan besar tidak akan pernah tersentuh untuk pemakaian normal.

@@ -207,10 +207,30 @@ service cloud.firestore {
     // rekap Dashboard salah tampil, tidak menyentuh data pesanan/pembayaran
     // aslinya sama sekali, dan tetap bisa diperbaiki manual lewat "Hitung
     // Ulang" kapan saja.
+    //
+    // PERBAIKAN: sebelumnya SEMUA user aktif (termasuk Karyawan) boleh
+    // menulis APAPUN ke sini, termasuk mengosongkan/mengganti TOTAL isi
+    // dokumen (mis. .set({}) tanpa merge) -- artinya Karyawan mana pun bisa
+    // sengaja/tidak sengaja menghapus seluruh rekap Dashboard. Sekarang:
+    // Owner & Admin Kasir tetap bebas penuh (dipakai fitur "Hitung Ulang" di
+    // Laporan yang MENGGANTI TOTAL dari nol lewat .set() TANPA merge --
+    // makanya perlu boleh menghapus key lama). Role lain (Karyawan) TETAP
+    // boleh menulis -- WAJIB tetap bisa, karena applyProdukCabangStatsDelta()
+    // dipanggil DI DALAM transaksi yang sama dengan create/edit pesanan
+    // milik Karyawan sendiri; kalau ditolak total, transaksi pesanannya ikut
+    // gagal tersimpan -- TAPI tidak boleh menghapus key level-atas yang
+    // sudah ada (cuma boleh menambah produk baru / mengubah angka yang ada,
+    // via increment()), supaya tidak bisa mengosongkan rekap produk/cabang
+    // lain. `resource == null` mengizinkan penulisan dokumen ini untuk
+    // PERTAMA KALINYA (belum ada key untuk dihapus).
     match /stats/{docId} {
       allow read: if isSignedIn() && isActiveUser();
-      allow write: if isSignedIn() && isActiveUser();
+      allow write: if isSignedIn() && isActiveUser()
+        && (isOwner() || isAdminKasir()
+            || resource == null
+            || request.resource.data.diff(resource.data).removedKeys().size() == 0);
     }
+
 
     // Penomoran otomatis pesanan. Hanya field "seq" (angka) yang boleh
     // ditulis, dan nilainya wajib naik -- mencegah nomor nota/urut dirusak

@@ -56,6 +56,19 @@ auth.onAuthStateChanged(async (user) => {
 // Fitur "1 sesi login per perangkat". localStorage dibagi otomatis ke semua
 // tab dalam browser yang sama di komputer yang sama -- jadi buka beberapa
 // tab di 1 komputer tetap dianggap 1 sesi, tidak saling menendang.
+//
+// PENTING (batasan yang disadari, bukan celah yang lupa ditutup): ini murni
+// PERINGATAN di sisi APLIKASI, BUKAN kunci yang ditegakkan Firestore Rules.
+// Rules cuma bisa mengecek SIAPA yang login (request.auth.uid), tidak bisa
+// membedakan DARI SESI/PERANGKAT MANA sebuah request dikirim -- itu perlu
+// "custom claim" di token yang cuma bisa diset lewat Firebase Admin SDK
+// (wajib ada server/Cloud Function, di luar cakupan aplikasi tanpa-backend
+// ini). Detail lengkap & alasan penerimaan batasan ini ada di
+// PANDUAN-SETUP.md bagian "Batasan yang Perlu Diketahui" -- baca di sana
+// dulu sebelum mengubah fungsi ini, supaya perbaikan yang dicoba tidak
+// berakhir jadi keamanan pura-pura (mis. mengandalkan nilai yang dikirim
+// client sendiri sebagai "bukti", padahal nilai itu bisa dibaca & ditiru
+// balik oleh siapa pun yang buka DevTools).
 let sessionKickHandled = false;
 async function watchSingleSession(uid) {
   const localSessionId = localStorage.getItem("device_session_id");

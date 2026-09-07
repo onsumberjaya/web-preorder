@@ -21,7 +21,15 @@
 // Naikkan angka versi ini kalau pernah menghapus/mengganti nama file app
 // shell, supaya cache lama (yang menyimpan nama file yang sudah tidak ada)
 // ikut dibersihkan saat SW versi baru aktif.
-const CACHE_VERSION = "v1";
+//
+// PERBAIKAN v2: menambahkan arsip.html, js/arsip.js, panduan.html, dan
+// js/presence.js -- 4 file yang sudah lama ada di aplikasi tapi ketinggalan
+// dari daftar precache ini. Dengan strategi network-first di bawah, ini
+// sebenarnya cuma memengaruhi pengalaman OFFLINE untuk pengguna yang BELUM
+// PERNAH membuka halaman itu sekali pun secara online (baru akan ikut
+// ke-cache begitu berhasil diambil dari jaringan) -- bukan "selalu gagal"
+// tapi tetap lebih baik langsung tersedia dari awal.
+const CACHE_VERSION = "v2";
 const CACHE_NAME = `benih-preorder-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_FILES = [
@@ -35,12 +43,15 @@ const APP_SHELL_FILES = [
   "laporan.html",
   "nota.html",
   "toko.html",
+  "arsip.html",
+  "panduan.html",
   "manifest.json",
   "css/style.css",
   "js/firebase-config.js",
   "js/utils.js",
   "js/auth-guard.js",
   "js/nav.js",
+  "js/presence.js",
   "js/dashboard.js",
   "js/pesanan.js",
   "js/input-pesanan.js",
@@ -50,6 +61,7 @@ const APP_SHELL_FILES = [
   "js/laporan.js",
   "js/nota.js",
   "js/toko.js",
+  "js/arsip.js",
   "assets/favicon.svg",
   "assets/icon-192.png",
   "assets/icon-512.png",
