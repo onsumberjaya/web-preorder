@@ -5,21 +5,28 @@
 // ==========================================================================
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyDigzDlt2pKFeZVz4ZJuFiWzg1u-vXW8Go",
   authDomain: "manajemen-pesanan-benih.firebaseapp.com",
+  databaseURL: "https://manajemen-pesanan-benih-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "manajemen-pesanan-benih",
   storageBucket: "manajemen-pesanan-benih.firebasestorage.app",
   messagingSenderId: "648413234604",
   appId: "1:648413234604:web:01b296f97ffeb7f24b6609",
-  measurementId: "G-C96BWFSEFH",
-  // Dipakai fitur "Karyawan Online" di halaman Kelola Pengguna. Isi dengan
-  // URL Realtime Database Anda -- muncul di Firebase Console setelah Anda
-  // klik "Create Database" di menu "Realtime Database" (BUKAN "Firestore
-  // Database", ini layanan terpisah). Bentuknya mirip:
-  // https://NAMA-PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app
-  databaseURL: "https://manajemen-pesanan-benih-default-rtdb.asia-southeast1.firebasedatabase.app",
+  measurementId: "G-C96BWFSEFH"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 // Domain palsu untuk mengubah "username" jadi format email yang dibutuhkan
 // Firebase Authentication. User cukup login pakai username biasa, tapi di
@@ -46,11 +53,11 @@ const FAKE_EMAIL_DOMAIN = "benihpreorder.local";
 // Kalau dibiarkan "GANTI_..." (belum diisi), App Check dilewati diam-diam
 // -- aplikasi tetap jalan 100% normal seperti sebelumnya, cuma tanpa pagar
 // tambahan ini.
-const RECAPTCHA_V3_SITE_KEY = "GANTI_DENGAN_RECAPTCHA_V3_SITE_KEY";
+const RECAPTCHA_V3_SITE_KEY = "6LfXSq4tAAAAAJl6ZUvMJbTXkoB2stBgo7IEpIqV";
 
 firebase.initializeApp(firebaseConfig);
 
-if (!RECAPTCHA_V3_SITE_KEY.startsWith("GANTI_")) {
+if (!RECAPTCHA_V3_SITE_KEY.startsWith("6LfXSq4tAAAAAJl6ZUvMJbTXkoB2stBgo7IEpIqV")) {
   try {
     // isTokenAutoRefreshEnabled: true -- token App Check diperpanjang
     // otomatis di belakang layar selama halaman terbuka, staf tidak perlu
