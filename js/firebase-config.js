@@ -23,8 +23,7 @@ const FAKE_EMAIL_DOMAIN = "benihpreorder.local";
 // (Opsional, sangat disarankan) App Check -- lihat PANDUAN-SETUP.md Bagian 1f.
 // Kalau dibiarkan "GANTI_..." (belum diisi), App Check dilewati diam-diam --
 // aplikasi tetap jalan 100% normal seperti sebelumnya.
-const RECAPTCHA_V3_SITE_KEY = "6LfXSq4tAAAAAJl6ZUvMJbTXkoB2stBgo7IEpIqV";
-
+const RECAPTCHA_V3_SITE_KEY = "GANTI_DENGAN_RECAPTCHA_V3_SITE_KEY";
 firebase.initializeApp(firebaseConfig);
 
 if (!RECAPTCHA_V3_SITE_KEY.startsWith("GANTI_")) {
