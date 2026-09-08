@@ -451,7 +451,7 @@ button, .btn {
   gap: 7px;
   transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
 }
-button:active { transform: translateY(1px); }
+button:active { transform: translateY(1px); filter: brightness(0.96); }
 .btn-primary { background: var(--brand-600); color: #fff; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25); }
 .btn-primary:hover { background: var(--brand-700); }
 .btn-secondary { background: var(--gray-100); color: var(--gray-700); }
@@ -523,6 +523,15 @@ table tbody tr:hover { background: var(--gray-50); }
 
 .spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--gray-200); border-top-color: var(--brand-600); border-radius: 50%; animation: spin 0.7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* PENINGKATAN UI/UX (Tahap 1): animasi halus saat modal muncul -- dulu
+   modal langsung "lompat" muncul begitu style.display diubah ke "flex" oleh
+   JS. @keyframes di sini otomatis terputar ulang tiap kali elemen berpindah
+   dari display:none ke tampil (browser menghitung ulang animasi dari titik
+   awal setiap kali elemen jadi ter-render), jadi tidak perlu ubah kode JS
+   sama sekali yang men-toggle modal-modal di seluruh aplikasi. */
+@keyframes modalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalBoxIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 .loading-center { display: flex; justify-content: center; align-items: center; padding: 60px 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
@@ -699,8 +708,9 @@ table tbody tr:hover { background: var(--gray-50); }
   position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(2px);
   display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  animation: modalBackdropIn 0.15s ease;
 }
-.modal-box { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+.modal-box { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: modalBoxIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
 .modal-box h3 { font-weight: 800; color: var(--gray-900); }
 
 /* ---------- Login page ---------- */
@@ -742,4 +752,17 @@ table tbody tr:hover { background: var(--gray-50); }
   .nota-mode-dm .nota-a4 { display: none; }
   .nota-mode-dm .nota-dm { display: block; }
   @page { margin: 0; }
+}
+
+/* PENINGKATAN UI/UX: hormati pengaturan "Reduce Motion" di perangkat
+   pengguna (Aksesibilitas > Kurangi Gerakan di HP/laptop) -- sebagian orang
+   merasa pusing/terganggu dengan animasi. Mematikan SEMUA transisi/animasi
+   CSS di aplikasi ini secara global kalau pengaturan itu aktif, tanpa perlu
+   menyentuh kode manapun yang menghasilkan transisi/animasinya. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

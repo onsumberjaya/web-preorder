@@ -8,6 +8,13 @@ let chartAlamat = null;
 let chartWaktu = null;
 let dashGranularitas = "harian";
 let dashMetrik = "unit"; // "unit" atau "uang" -- toggle di grafik "Pesanan Masuk"
+// Sembunyikan angka "Total Uang" jadi "********" (mis. dilihat orang lewat
+// bahu, atau layar di-share ke orang lain) -- disimpan di localStorage
+// (per PERANGKAT/browser, bukan per akun) supaya pilihannya tetap diingat
+// walau halaman di-refresh atau dibuka lagi nanti, sama seperti pola dark
+// mode/sidebar yang sudah ada di aplikasi ini.
+let dashMoneyHidden = localStorage.getItem("dashboardMoneyHidden") === "1";
+let dashLastTotalUang = 0; // disimpan supaya toggle bisa langsung ganti teks tanpa perlu render ulang seluruh dashboard
 
 // Chart.js kadang tidak langsung menyesuaikan lebar canvas saat browser
 // di-zoom (beda dengan kotak/box biasa yang otomatis mengikuti lebar layar
@@ -18,6 +25,19 @@ window.addEventListener("resize", () => {
   if (chartProduk) chartProduk.resize();
   if (chartAlamat) chartAlamat.resize();
 });
+
+// Toggle tombol mata di kartu "Total Uang". Sengaja langsung ubah teks di
+// DOM (bukan panggil ulang renderDashboard()) supaya responsnya instan,
+// tidak perlu tunggu apa pun -- dashLastTotalUang sudah disimpan dari
+// render terakhir.
+function toggleDashMoneyVisibility() {
+  dashMoneyHidden = !dashMoneyHidden;
+  localStorage.setItem("dashboardMoneyHidden", dashMoneyHidden ? "1" : "0");
+  const valEl = document.getElementById("dash-total-uang-value");
+  const iconEl = document.getElementById("dash-total-uang-eye-icon");
+  if (valEl) valEl.textContent = dashMoneyHidden ? "********" : formatRupiah(dashLastTotalUang);
+  if (iconEl) iconEl.className = dashMoneyHidden ? "ph-bold ph-eye-slash" : "ph-bold ph-eye";
+}
 
 // Tombol "Filter" di pojok kanan atas -- kotak filter disembunyikan
 // secara default dan baru muncul saat tombol ini diklik.
@@ -324,6 +344,7 @@ function renderDashboard() {
     0
   );
   const totalUang = orders.reduce((s, o) => s + o.total, 0);
+  dashLastTotalUang = totalUang; // dipakai toggleDashMoneyVisibility() supaya tidak perlu render ulang
   const jumlahLunas = orders.filter((o) => o.status_bayar === "lunas").length;
   const jumlahBelumLunas = jumlahNota - jumlahLunas;
   const jumlahDiambil = orders.filter((o) => o.is_diambil).length;
@@ -412,7 +433,15 @@ function renderDashboard() {
       </div>
       <div class="stat-card brand">
         <div class="stat-icon"><i class="ph-bold ph-wallet"></i></div>
-        <div class="stat-body"><div class="stat-label">Total Uang</div><div class="stat-value" style="font-size:16px;">${formatRupiah(totalUang)}</div></div>
+        <div class="stat-body">
+          <div class="stat-label" style="display:flex; align-items:center; gap:6px;">
+            Total Uang
+            <button type="button" onclick="toggleDashMoneyVisibility()" title="Sembunyikan/tampilkan angka" style="background:none; border:none; padding:0; cursor:pointer; color:inherit; opacity:0.8; display:inline-flex; align-items:center; font-size:13px;">
+              <i class="${dashMoneyHidden ? "ph-bold ph-eye-slash" : "ph-bold ph-eye"}" id="dash-total-uang-eye-icon"></i>
+            </button>
+          </div>
+          <div class="stat-value" style="font-size:16px;" id="dash-total-uang-value">${dashMoneyHidden ? "********" : formatRupiah(totalUang)}</div>
+        </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon"><i class="ph-bold ph-check-circle"></i></div>
