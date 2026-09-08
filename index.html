@@ -15,9 +15,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Benih Preorder" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://www.gstatic.com" />
+<link rel="preconnect" href="https://unpkg.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/@phosphor-icons/web@2.1.2"></script>
-<script src="js/pwa-register.js?v=10"></script>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2" defer></script>
+<script src="js/pwa-register.js?v=10" defer></script>
 <style>
   body {
     background: var(--gray-50);
@@ -228,14 +231,21 @@
 
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=10"></script>
-  <script src="js/utils.js?v=10"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="js/firebase-config.js?v=10" defer></script>
+  <script src="js/utils.js?v=10" defer></script>
   <script>
+    // togglePasswordVisibility() sengaja TETAP di luar wrapper DOMContentLoaded
+    // di bawah -- dipanggil lewat onclick="..." langsung dari HTML tombol
+    // mata (baris <button ... onclick="togglePasswordVisibility()">), yang
+    // butuh fungsi ini ada di scope GLOBAL supaya bisa ditemukan. Aman
+    // ditaruh di sini karena isinya cuma baca/ubah elemen DOM lewat
+    // getElementById (elemen itu sudah ada duluan di HTML sebelum baris
+    // script ini, terlepas dari defer/tidaknya skrip lain), TIDAK menyentuh
+    // `auth`/`db`/`firebaseConfig` sama sekali.
     function togglePasswordVisibility() {
       const passwordInput = document.getElementById("password");
       const icon = document.getElementById("password-toggle-icon");
@@ -245,6 +255,25 @@
       icon.classList.toggle("ph-eye-slash", !showing);
     }
 
+    // PERBAIKAN (optimasi kecepatan): skrip eksternal di halaman ini sekarang
+    // dimuat pakai atribut `defer` (lihat tag <script src="..."> di bawah),
+    // supaya browser bisa lanjut merender halaman sambil skrip-skrip itu
+    // diunduh, bukan berhenti total menunggu tiap satu selesai dulu. Efek
+    // sampingnya: skrip eksternal (termasuk js/firebase-config.js, yang
+    // mendefinisikan `auth`, `db`, `firebaseConfig`) baru benar-benar
+    // dijalankan TEPAT SEBELUM event "DOMContentLoaded", BUKAN lagi
+    // langsung berurutan dari atas ke bawah seperti skrip biasa. Sisa blok
+    // di bawah ini langsung memakai `auth`/`firebaseConfig` di posisi utama
+    // (bukan di dalam fungsi) -- kalau dibiarkan begitu, blok ini akan jalan
+    // DULUAN sebelum firebase-config.js sempat dieksekusi, dan
+    // `auth`/`firebaseConfig` akan "belum ada" (ReferenceError, seluruh
+    // proses login ikut gagal). Makanya dibungkus `DOMContentLoaded` di
+    // bawah -- dengan itu, blok ini dijamin baru jalan SESUDAH semua skrip
+    // ber-`defer` di atasnya selesai, persis seperti urutan aslinya sebelum
+    // optimasi ini, cuma waktu mulainya saja yang mundur sedikit (dan itu
+    // digantikan justru dengan proses render halaman yang tidak lagi
+    // tertahan skrip).
+    document.addEventListener("DOMContentLoaded", function () {
     // Kalau sudah login (mis. buka index.html lagi padahal sesinya masih
     // berlaku), langsung lempar ke daftar pesanan -- TAPI jangan sampai ini
     // ikut terpicu di tengah proses login yang baru saja dikirim (lihat
@@ -293,6 +322,7 @@
       document.getElementById("setup-hint").innerHTML =
         "⚠️ Firebase belum dikonfigurasi. Lihat PANDUAN-SETUP.md untuk langkah setup.";
     }
+    }); // tutup document.addEventListener("DOMContentLoaded", ...)
   </script>
 </body>
 </html>

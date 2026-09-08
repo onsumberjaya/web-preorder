@@ -354,6 +354,34 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--brand-500);
   box-shadow: 0 0 0 3px var(--brand-100);
 }
+
+/* PERBAIKAN: saat browser (Chrome/Edge) mengisi otomatis username/password
+   yang pernah disimpan di halaman login, browser MEMAKSA warna latar &
+   teksnya SENDIRI (biasanya putih/kuning pucat + teks gelap) lewat trik
+   internal -webkit-box-shadow -- ini menimpa `background`/`color` dari
+   aturan `input, select, textarea` di atas begitu saja. Di tema TERANG
+   kebetulan tidak kentara (putih ketimpa putih, masih kebaca), tapi di tema
+   GELAP jadi tabrakan: latar dipaksa putih terang oleh browser sementara
+   teks kita `--gray-800` (terang juga di dark mode) -- hasilnya teks putih
+   di atas putih, susah/tidak kebaca sama sekali. Diperbaiki dengan memaksa
+   balik warnanya pakai variabel tema kita sendiri, jadi otomatis ikut
+   terang/gelap sesuai tema yang aktif, termasuk saat field-nya diisi
+   otomatis oleh browser. Berlaku di semua halaman (bukan cuma login) karena
+   aturan `input, select, textarea` di atas juga berlaku global. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--gray-800);
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface) inset;
+  box-shadow: 0 0 0px 1000px var(--surface) inset;
+  /* Delay transisi warna super panjang -- trik supaya browser tidak
+     "berkedip" balik ke warna aslinya sesaat sebelum override ini kepasang. */
+  transition: background-color 9999s ease-in-out 0s, color 9999s ease-in-out 0s;
+}
+input:autofill {
+  color: var(--gray-800);
+}
 input:disabled, select:disabled, textarea:disabled {
   background: var(--gray-50);
   color: var(--gray-500);

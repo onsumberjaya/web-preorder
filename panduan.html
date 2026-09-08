@@ -15,9 +15,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Benih Preorder" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://www.gstatic.com" />
+<link rel="preconnect" href="https://unpkg.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/@phosphor-icons/web@2.1.2"></script>
-<script src="js/pwa-register.js?v=10"></script>
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2" defer></script>
+<script src="js/pwa-register.js?v=10" defer></script>
 <style>
   /* ---- Gaya khusus halaman Panduan (tidak mengubah style.css global) ---- */
   .panduan-intro-alert{display:flex; gap:12px; align-items:flex-start; background:var(--blue-50); color:var(--blue-700); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:20px; font-size:13.5px; line-height:1.55;}
@@ -324,16 +327,15 @@
     </main>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="js/firebase-config.js?v=10"></script>
-  <script src="js/utils.js?v=10"></script>
-  <script src="js/nav.js?v=10"></script>
-  <script src="js/auth-guard.js?v=10"></script>
-  <script src="js/presence.js?v=10"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="js/firebase-config.js?v=10" defer></script>
+  <script src="js/utils.js?v=10" defer></script>
+  <script src="js/nav.js?v=10" defer></script>
+  <script src="js/auth-guard.js?v=10" defer></script>
+  <script src="js/presence.js?v=10" defer></script>
   <script>
     // Pencarian ringan: buka otomatis section yang cocok, sembunyikan yang tidak.
     const searchInput = document.getElementById("panduan-search-input");

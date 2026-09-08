@@ -66,7 +66,32 @@ ini tidak diperlukan -- aplikasi tetap jalan normal tanpanya.
 5. Buka file `js/firebase-config.js` di folder project ini pakai Notepad.
 6. Ganti bagian `firebaseConfig` di file itu dengan yang baru saja Anda copy. Simpan file.
 
-### 1f. (Opsional, SANGAT disarankan) Aktifkan App Check
+### 1f. (Opsional -- SEKARANG TIDAK DISARANKAN, baca dulu) App Check
+
+> ⚠️ **UPDATE April 2026: bagian ini TIDAK LAGI SEPERTI SEBELUMNYA -- disarankan DILEWATI.**
+> Waktu ditulis pertama kali, langkah di bawah memakai reCAPTCHA v3 versi lama yang gratis penuh dan
+> tidak perlu kartu/billing apa pun. Sejak April 2026 Google mengubah reCAPTCHA: pendaftaran key v3
+> "klasik" (lewat `google.com/recaptcha/admin`) **sudah ditutup untuk key baru** -- Firebase Console
+> sekarang cuma menawarkan **reCAPTCHA Enterprise**, yang kuota gratisnya jauh lebih kecil (10.000
+> pemakaian/bulan, dulu ~1 juta) dan **biasanya mewajibkan akun penagihan (kartu) tersambung ke Google
+> Cloud** walau masih di bawah kuota gratis. Ini bukan lagi "aktifkan, gratis, selesai" seperti
+> gambaran awal -- ada biaya potensial dan langkah setup ekstra (Google Cloud Billing) yang di luar
+> filosofi "gratis selamanya, tanpa kartu" aplikasi ini.
+>
+> **Rekomendasi: LEWATI bagian ini.** App Check murni pagar tambahan (mencegah `apiKey` dipakai orang
+> lain buat boros kuota lewat luar aplikasi) -- BUKAN perbaikan bug, aplikasi 100% aman dan lengkap
+> fiturnya tanpa ini, karena keamanan data sesungguhnya sudah ada di `firestore.rules` &
+> `database.rules.json`. Biarkan `RECAPTCHA_V3_SITE_KEY` di `js/firebase-config.js` tetap
+> `"GANTI_DENGAN_RECAPTCHA_V3_SITE_KEY"` apa adanya -- App Check otomatis dilewati, tidak ada efek
+> apa pun ke aplikasi.
+>
+> Langkah-langkah lama di bawah ini SENGAJA dibiarkan (bukan dihapus) sebagai catatan sejarah/kalau
+> Google mengubah kebijakannya lagi nanti -- tapi jangan diikuti dengan asumsi "gratis tanpa kartu"
+> seperti tertulis, karena itu sudah tidak akurat lagi per April 2026.
+
+<details>
+<summary>Langkah lama (SEBELUM April 2026) -- klik untuk lihat, tidak disarankan diikuti sekarang</summary>
+
 `firebaseConfig` di atas (termasuk `apiKey`) memang publik dan itu wajar untuk aplikasi Firebase
 manapun -- keamanan sesungguhnya ada di Rules, bukan di kerahasiaan `apiKey`. TAPI tanpa App Check,
 siapa pun yang menyalin `apiKey` itu dari "View Source" bisa memakainya mengirim request langsung ke
@@ -87,20 +112,28 @@ gratis harian Firebase habis. App Check menutup celah itu.
    - Setujui Persyaratan Layanan → **Submit**.
    - Akan muncul 2 kunci: **Site Key** (publik) dan **Secret Key** (rahasia, JANGAN taruh di kode).
      Salin keduanya, akan dipakai di langkah 2 & 3.
-2. **Daftarkan ke Firebase Console.** Menu kiri → **Build → App Check** → klik app web Anda →
-   pilih provider **reCAPTCHA v3** → tempel **Secret Key** dari langkah 1 → **Save**.
-3. **Isi Site Key ke kode.** Buka `js/firebase-config.js`, cari baris
+2. **Daftarkan ke Firebase Console.** Menu kiri → **Build → App Check** → tab **Apps** → klik app
+   web Anda → pilih provider **reCAPTCHA v3** → tempel **Secret Key** dari langkah 1 → **Save**.
+3. **Pasang kembali tag script App Check.** Karena tidak dipakai, tag
+   `<script src=".../firebase-app-check-compat.js"></script>` sudah DIHAPUS dari semua 12 file HTML
+   (optimasi kecepatan). Tanpa langkah ini App Check TIDAK akan pernah menyala walau langkah 4 & 5
+   sudah diikuti. Tambahkan kembali baris ini di **setiap** file HTML, tepat setelah baris
+   `firebase-app-compat.js` dan sebelum `firebase-auth-compat.js`:
+   ```html
+   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js" defer></script>
+   ```
+4. **Isi Site Key ke kode.** Buka `js/firebase-config.js`, cari baris
    `const RECAPTCHA_V3_SITE_KEY = "GANTI_DENGAN_RECAPTCHA_V3_SITE_KEY";`, ganti isinya dengan
    **Site Key** (bukan Secret Key!) dari langkah 1. Simpan file.
-4. **Upload & tunggu.** Ikuti Bagian 5 (atau 5c kalau ini update, bukan instalasi baru) untuk
+5. **Upload & tunggu.** Ikuti Bagian 5 (atau 5c kalau ini update, bukan instalasi baru) untuk
    mengunggah perubahan ini ke GitHub Pages seperti biasa. **Rules TIDAK berubah di langkah ini**,
    jadi tidak perlu publish ulang Rules -- cukup upload kodenya saja.
-5. **Pantau dulu, JANGAN langsung di-enforce.** Balik ke Firebase Console → **App Check** → tab
-   **Apps**, lihat metrik "Verified requests" untuk Firestore (dan Realtime Database kalau dipakai).
+6. **Pantau dulu, JANGAN langsung di-enforce.** Balik ke Firebase Console → **App Check** → tab
+   **APIs**, lihat metrik "Verified requests" untuk Firestore (dan Realtime Database kalau dipakai).
    Biarkan **minimal 1-2 hari** supaya semua staf sempat membuka ulang aplikasinya (otomatis dapat
    versi baru) dan grafiknya didominasi "Verified". Selama masa ini App Check baru MEMANTAU, belum
    MEMBLOKIR apa pun -- aplikasi tetap 100% jalan normal seperti biasa.
-6. **Baru aktifkan "Enforce".** Setelah yakin verified request sudah dominan: App Check → pilih
+7. **Baru aktifkan "Enforce".** Setelah yakin verified request sudah dominan: App Check → pilih
    **Firestore Database** → toggle **Enforce**. Kalau Anda pakai Realtime Database (fitur "Karyawan
    Online"), ulangi untuk **Realtime Database** juga. Mulai titik ini, request tanpa App Check yang
    valid akan ditolak.
@@ -112,6 +145,8 @@ gratis harian Firebase habis. App Check menutup celah itu.
 >
 > Lewati seluruh bagian ini kalau belum siap -- aplikasi tetap berjalan penuh tanpa App Check, cuma
 > tanpa pagar tambahan ini (lihat komentar `RECAPTCHA_V3_SITE_KEY` di `js/firebase-config.js`).
+
+</details>
 
 ---
 
