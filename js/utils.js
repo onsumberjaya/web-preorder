@@ -114,6 +114,20 @@ function skeletonRowsBare(count) {
   return row.repeat(count);
 }
 
+// PENINGKATAN UI/UX: format ribuan otomatis saat mengetik nominal uang (mis.
+// "150000" jadi "150.000" begitu diketik) -- lebih gampang dibaca/dicek
+// sebelum submit, mengurangi salah ketik jumlah nol. Dipasang lewat
+// formatNumberInputLive() sebagai listener "input" pada field bersangkutan.
+// parseFormattedNumber() dipakai di sisi baca (submit/hitung total) untuk
+// membalikkan lagi ke angka murni.
+function parseFormattedNumber(str) {
+  return Number(String(str || "").replace(/[^0-9]/g, "")) || 0;
+}
+function formatNumberInputLive(inputEl) {
+  const raw = parseFormattedNumber(inputEl.value);
+  inputEl.value = raw > 0 ? raw.toLocaleString("id-ID") : "";
+}
+
 function progressBarHtml(current, total, label) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   return `
@@ -134,6 +148,32 @@ function escapeHtml(str) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// PENINGKATAN UI/UX: toast dengan tombol "Batalkan" (undo) -- dipakai untuk
+// hapus pesanan tunggal (lihat deleteOrder() di js/pesanan.js). Beda dari
+// showToast() biasa (teks polos, auto-hilang) -- toast ini punya tombol
+// aksi & TIDAK auto-hilang sebelum durationMs habis (supaya sempat diklik).
+function showUndoToast(message, onUndo, durationMs) {
+  let el = document.getElementById("app-undo-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app-undo-toast";
+    el.className = "undo-toast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<span>${escapeHtml(message)}</span><button type="button" class="undo-toast-btn">Batalkan</button>`;
+  el.style.display = "flex";
+  const btn = el.querySelector(".undo-toast-btn");
+  btn.onclick = () => {
+    el.style.display = "none";
+    clearTimeout(el._timer);
+    onUndo();
+  };
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => {
+    el.style.display = "none";
+  }, durationMs);
 }
 
 function showToast(message, type) {

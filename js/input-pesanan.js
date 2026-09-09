@@ -16,7 +16,86 @@ function emptyLine() {
 }
 
 let productsListReady = false;
-let customerHistory = []; // [{nama, alamat, no_hp}], dedup dari riwayat pesanan terakhir -- dipakai autocomplete Nama Pembeli
+let customerHistory = [];
+
+// PENINGKATAN UI/UX: draft otomatis Input Pesanan -- kalau kasir sedang isi
+// form panjang (banyak item) lalu tab tertutup tidak sengaja/HP mati
+// baterai, isian sebelumnya bisa ditawarkan lagi begitu halaman ini dibuka
+// ulang. SENGAJA HANYA untuk pesanan BARU (bukan Edit Pesanan) -- draft buat
+// mode Edit berisiko rancu dengan data pesanan asli yang sedang diedit.
+// Disimpan di localStorage (per PERANGKAT/browser), kedaluwarsa otomatis
+// setelah 24 jam supaya tidak ada draft basi nongol berbulan-bulan kemudian.
+const DRAFT_STORAGE_KEY = "inputPesananDraft_v1";
+const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+function saveDraftNow() {
+  if (editOrderId) return; // tidak pernah simpan draft di mode Edit
+  try {
+    const nama = document.getElementById("f-nama");
+    if (!nama) return; // form belum sempat dirender
+    localStorage.setItem(
+      DRAFT_STORAGE_KEY,
+      JSON.stringify({
+        savedAt: Date.now(),
+        nama: nama.value,
+        alamat: document.getElementById("f-alamat").value,
+        noHp: document.getElementById("f-nohp").value,
+        catatan: document.getElementById("f-catatan") ? document.getElementById("f-catatan").value : "",
+        tanggal: document.getElementById("f-tanggal") ? document.getElementById("f-tanggal").value : "",
+        lineItems: lineItems.map((l) => ({ product_id: l.product_id, wave_id: l.wave_id, jumlah: l.jumlah })),
+      })
+    );
+  } catch (e) {
+    // localStorage penuh/dimatikan -- diamkan, form tetap bisa dipakai normal.
+  }
+}
+let saveDraftDebounceTimer = null;
+function saveDraftDebounced() {
+  clearTimeout(saveDraftDebounceTimer);
+  saveDraftDebounceTimer = setTimeout(saveDraftNow, 400);
+}
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch (e) {}
+}
+// Draft dianggap "berisi sesuatu yang sayang dibuang" kalau nama sudah diisi
+// ATAU ada minimal 1 baris produk yang sudah dipilih -- draft kosong (form
+// baru dibuka, belum diapa-apakan) tidak perlu ditawarkan untuk dipulihkan.
+function getRestorableDraft() {
+  let draft;
+  try {
+    draft = JSON.parse(localStorage.getItem(DRAFT_STORAGE_KEY) || "null");
+  } catch (e) {
+    return null;
+  }
+  if (!draft || Date.now() - draft.savedAt > DRAFT_MAX_AGE_MS) return null;
+  const hasContent = (draft.nama || "").trim().length > 0 || (draft.lineItems || []).some((l) => l.product_id);
+  return hasContent ? draft : null;
+}
+function applyDraft(draft) {
+  document.getElementById("f-nama").value = draft.nama || "";
+  document.getElementById("f-alamat").value = draft.alamat || "";
+  document.getElementById("f-nohp").value = draft.noHp || "";
+  if (document.getElementById("f-catatan")) document.getElementById("f-catatan").value = draft.catatan || "";
+  if (draft.tanggal && document.getElementById("f-tanggal")) document.getElementById("f-tanggal").value = draft.tanggal;
+  if (Array.isArray(draft.lineItems) && draft.lineItems.length > 0) {
+    lineItems = draft.lineItems.map((l) => ({ key: lineKeyCounter++, product_id: l.product_id || "", wave_id: l.wave_id || "", jumlah: l.jumlah || "1" }));
+    renderLineItems();
+  }
+  validateAlamatField();
+  validateNoHpField();
+  updateTotalDisplay();
+  const banner = document.getElementById("draft-restore-banner");
+  if (banner) banner.remove();
+}
+// Dipanggil dari tombol "Lanjutkan" di banner -- baca ulang draft dari
+// localStorage sendiri (bukan lewat parameter onclick) supaya tidak perlu
+// menitipkan objek JSON lewat atribut HTML (rawan pecah kalau isinya ada
+// tanda kutip/karakter aneh, mis. nama pembeli yang mengandung tanda kutip).
+function restoreDraftFromBanner() {
+  const draft = getRestorableDraft();
+  if (draft) applyDraft(draft);
+} // [{nama, alamat, no_hp}], dedup dari riwayat pesanan terakhir -- dipakai autocomplete Nama Pembeli
 
 // PENINGKATAN UI/UX (Tahap 3): autocomplete Nama Pembeli. Sengaja TIDAK
 // query Firestore per ketikan (mahal, dan perlu index composite baru untuk
@@ -389,7 +468,7 @@ function renderForm() {
                    <div style="background:var(--gray-50); border-radius:var(--radius-sm); padding:10px 12px; font-weight:600;">${formatRupiah(editOrderData.paid_amount || 0)}</div>
                    <p style="font-size:12px; color:var(--gray-500); margin:4px 0 0;">Tidak bisa diubah di sini supaya riwayat pembayaran tetap tercatat rapi. Untuk mencatat pembayaran baru atau melihat riwayatnya, gunakan tombol "Detail / Bayar" di Daftar Pesanan.</p>`
                 : `<label>Uang Muka / Bayar Sekarang (Rp) *</label>
-                   <input type="number" id="f-bayar" min="0" value="0" required />
+                   <input type="text" inputmode="numeric" id="f-bayar" value="0" required />
                    <p style="font-size:12px; color:var(--gray-500); margin:4px 0 0;">Isi 0 jika belum bayar sama sekali, atau isi sesuai total untuk status Lunas.</p>`
             }
           </div>
@@ -424,8 +503,36 @@ function renderForm() {
 
   renderLineItems();
   document.getElementById("order-form").addEventListener("submit", handleSubmit);
+
+  // PENINGKATAN UI/UX: tawarkan draft tersimpan (kalau ada) -- cuma untuk
+  // pesanan BARU, ditaruh sebagai banner di atas form, sebelum baris
+  // pertama form-nya sendiri.
+  if (!isEdit) {
+    const draft = getRestorableDraft();
+    if (draft) {
+      document.getElementById("order-form").insertAdjacentHTML(
+        "afterbegin",
+        `<div class="alert alert-info" id="draft-restore-banner" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <span>Ada draft pesanan yang belum sempat disimpan (${escapeHtml(draft.nama || "tanpa nama")}). Lanjutkan?</span>
+          <span style="display:flex; gap:8px;">
+            <button type="button" class="btn-primary btn-sm" onclick="restoreDraftFromBanner()">Lanjutkan</button>
+            <button type="button" class="btn-secondary btn-sm" onclick="clearDraft(); document.getElementById('draft-restore-banner').remove();">Buang</button>
+          </span>
+        </div>`
+      );
+    }
+    // Simpan draft otomatis (debounced) tiap ada perubahan berarti di form.
+    ["f-nama", "f-alamat", "f-nohp", "f-catatan", "f-tanggal"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("input", saveDraftDebounced);
+    });
+  }
+
   const bayarInput = document.getElementById("f-bayar");
-  if (bayarInput) bayarInput.addEventListener("input", updateTotalDisplay);
+  if (bayarInput) bayarInput.addEventListener("input", () => {
+    formatNumberInputLive(bayarInput);
+    updateTotalDisplay();
+  });
   document.getElementById("f-nama").addEventListener("input", updateSummaryPanel);
   document.getElementById("f-nama").addEventListener("input", (e) => renderNamaSuggestions(e.target.value));
   document.getElementById("f-nama").addEventListener("blur", () => {
@@ -469,7 +576,7 @@ function updateSummaryPanel() {
   const total = grandTotal();
   const isEdit = !!editOrderId;
   const bayarInput = document.getElementById("f-bayar");
-  const paidAmount = isEdit ? editOrderData.paid_amount || 0 : bayarInput ? Number(bayarInput.value) || 0 : 0;
+  const paidAmount = isEdit ? editOrderData.paid_amount || 0 : bayarInput ? parseFormattedNumber(bayarInput.value) : 0;
   const sisa = total - paidAmount;
   const status = computeStatusBayar(total, paidAmount);
 
@@ -608,19 +715,23 @@ function updateLine(key, field, value) {
       warnEl.innerHTML = stockWarningHtml(prod, line.jumlah) + gelombangWarningHtml(prod, getWave(prod, line.wave_id), line.jumlah);
     }
     updateTotalDisplay();
+    saveDraftDebounced();
     return;
   }
   renderLineItems();
+  saveDraftDebounced();
 }
 
 function addLine() {
   lineItems.push(emptyLine());
   renderLineItems();
+  saveDraftDebounced();
 }
 function removeLine(key) {
   if (lineItems.length <= 1) return;
   lineItems = lineItems.filter((l) => l.key !== key);
   renderLineItems();
+  saveDraftDebounced();
 }
 
 function updateTotalDisplay() {
@@ -732,7 +843,7 @@ async function handleSubmit(e) {
   // sudah basi (diambil saat form dibuka) -- ini cuma validasi cepat di sisi
   // klien untuk feedback awal. Pengecekan yang SEBENARNYA (pakai data fresh
   // dari server) terjadi di dalam transaksi saat submit, lihat handleSubmit().
-  const paidAmount = editOrderId ? editOrderData.paid_amount || 0 : Number(document.getElementById("f-bayar").value) || 0;
+  const paidAmount = editOrderId ? editOrderData.paid_amount || 0 : parseFormattedNumber(document.getElementById("f-bayar").value);
   if (paidAmount > total) {
     alertBox.innerHTML = editOrderId
       ? `<div class="alert alert-error">Total pesanan baru (${formatRupiah(total)}) lebih kecil dari yang sudah dibayar (${formatRupiah(paidAmount)}). Kurangi jumlah dulu, atau sesuaikan pembayarannya lewat Detail Pesanan di Daftar Pesanan.</div>`
@@ -920,6 +1031,7 @@ async function handleSubmit(e) {
     });
 
     showToast("Pesanan berhasil disimpan.", "success");
+    clearDraft();
     document.getElementById("form-container").style.display = "none";
     const successBox = document.getElementById("success-box");
     successBox.style.display = "block";

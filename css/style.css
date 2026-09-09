@@ -142,6 +142,19 @@ a { color: inherit; text-decoration: none; }
 .sidebar-nav .nav-item.active { background: var(--brand-600); color: #fff; box-shadow: var(--shadow-sm); }
 .sidebar-nav .nav-item.active i { color: #fff; }
 
+/* PENINGKATAN UI/UX: badge notifikasi angka -- lihat loadNavBadges() di
+   js/nav.js. Versi sidebar didorong ke ujung kanan lewat margin-left:auto
+   (parent-nya .nav-item sudah display:flex); versi bottom nav diposisikan
+   absolut menempel di pojok kanan-atas ikon. */
+.nav-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--red-600); color: #fff; font-size: 10.5px; font-weight: 700;
+  margin-left: auto;
+}
+.sidebar-nav .nav-item.active .nav-badge { background: #fff; color: var(--brand-700); }
+.nav-badge-bottom { position: absolute; top: 2px; right: calc(50% - 20px); margin-left: 0; }
+
 .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); }
 .theme-switch-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -634,6 +647,25 @@ table tbody tr:hover { background: var(--gray-50); }
 .progress-bar-track { width: 100%; height: 8px; background: var(--gray-100); border-radius: 999px; overflow: hidden; margin: 10px 0 6px; }
 .progress-bar-fill { height: 100%; background: var(--brand-600); border-radius: 999px; transition: width 0.15s ease; }
 .progress-bar-label { text-align: center; font-size: 12.5px; color: var(--gray-500); }
+
+/* PENINGKATAN UI/UX: toast "Batalkan" (undo) -- lihat showUndoToast() di
+   js/utils.js. Beda posisi dari #app-toast biasa (yang ada di tengah-bawah)
+   supaya kalau keduanya sempat tampil bersamaan tidak saling tabrak. */
+.undo-toast {
+  display: none;
+  position: fixed; bottom: 20px; right: 20px; z-index: 999;
+  background: #1f2937; color: #fff; padding: 12px 14px 12px 18px;
+  border-radius: 10px; font-size: 13.5px; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  align-items: center; gap: 14px; max-width: 90vw;
+}
+.undo-toast-btn {
+  background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 6px;
+  padding: 6px 12px; font-weight: 700; font-size: 12.5px; cursor: pointer; flex-shrink: 0;
+}
+.undo-toast-btn:hover { background: rgba(255,255,255,0.25); }
+@media (max-width: 860px) {
+  .undo-toast { bottom: calc(var(--bottom-nav-height) + 12px); right: 12px; left: 12px; }
+}
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
 .toolbar input, .toolbar select { width: auto; min-width: 140px; }

@@ -22,6 +22,7 @@ function renderSidebar(profile) {
       (item) => `
       <a class="nav-item ${item.href === currentPage ? "active" : ""}" href="${item.href}">
         <i class="ph-bold ${item.icon}"></i><span>${item.label}</span>
+        ${item.href === "pesanan.html" ? '<span class="nav-badge" id="nav-badge-pesanan" style="display:none;"></span>' : ""}
       </a>`
     )
     .join("");
@@ -33,7 +34,7 @@ function renderSidebar(profile) {
         <div class="logo"><i class="ph-bold ph-plant"></i></div>
         <div>
           <h1>TOKO SUMBER JAYA</h1>
-          <p class="app-meta">Sistem Manajemen Pesanan Preorder <span class="app-version">v1.2</span></p>
+          <p class="app-meta">Sistem Manajemen Pesanan Preorder <span class="app-version">v1.3</span></p>
         </div>
       </div>
       <div class="sidebar-nav">${navHtml}</div>
@@ -48,6 +49,7 @@ function renderSidebar(profile) {
 
   renderTopbar(profile);
   renderBottomNav(profile, currentPage);
+  loadNavBadges(profile);
   fillTopbarCabangName(profile);
   ensureChangePasswordModal();
   updateThemeToggleUI(getCurrentTheme());
@@ -81,14 +83,49 @@ function renderBottomNav(profile, currentPage) {
     items
       .map(
         (item) => `
-      <a class="bottom-nav-item ${item.href === currentPage ? "active" : ""}" href="${item.href}">
+      <a class="bottom-nav-item ${item.href === currentPage ? "active" : ""}" href="${item.href}" style="position:relative;">
         <i class="ph-bold ${item.icon}"></i><span>${item.label}</span>
+        ${item.href === "pesanan.html" ? '<span class="nav-badge nav-badge-bottom" id="nav-badge-pesanan-bottom" style="display:none;"></span>' : ""}
       </a>`
       )
       .join("") +
     `<button type="button" class="bottom-nav-item" onclick="toggleMenu()">
       <i class="ph-bold ph-list"></i><span>Menu</span>
     </button>`;
+}
+
+// PENINGKATAN UI/UX: badge angka di menu "Daftar Pesanan" -- jumlah pesanan
+// HARI INI yang belum lunas, supaya langsung kelihatan ada yang perlu
+// ditindaklanjuti tanpa harus buka halamannya dulu. Sengaja dibatasi HARI
+// INI SAJA (bukan semua pesanan belum lunas sepanjang masa) supaya query-nya
+// tetap ringan/murah -- pakai index yang SUDAH ADA (cabang_id + tanggal),
+// tidak perlu index baru. Gagal dimuat pun diamkan (badge cuma pelengkap,
+// sidebar & bottom nav tetap 100% berfungsi normal tanpanya).
+async function loadNavBadges(profile) {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    let q = db.collection("orders").where("tanggal", ">=", todayStart).where("tanggal", "<=", todayEnd);
+    if (profile.role === "karyawan" && profile.cabang_id) {
+      q = db
+        .collection("orders")
+        .where("cabang_id", "==", profile.cabang_id)
+        .where("tanggal", ">=", todayStart)
+        .where("tanggal", "<=", todayEnd);
+    }
+    const snap = await q.get();
+    const belumLunas = snap.docs.filter((d) => d.data().status_bayar !== "lunas").length;
+    const label = belumLunas > 99 ? "99+" : String(belumLunas);
+    [document.getElementById("nav-badge-pesanan"), document.getElementById("nav-badge-pesanan-bottom")].forEach((badge) => {
+      if (!badge) return;
+      badge.textContent = label;
+      badge.style.display = belumLunas > 0 ? "inline-flex" : "none";
+    });
+  } catch (err) {
+    // Diamkan -- lihat catatan di atas fungsi ini.
+  }
 }
 
 function renderTopbar(profile) {

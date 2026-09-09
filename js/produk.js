@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const productId = document.getElementById("wave-product-id").value;
     const waveId = document.getElementById("wave-id").value;
     const label = document.getElementById("wave-label").value.trim();
-    const harga = Number(document.getElementById("wave-harga").value);
+    const harga = parseFormattedNumber(document.getElementById("wave-harga").value);
     const kuotaVal = document.getElementById("wave-kuota").value;
     const kuota = kuotaVal === "" ? null : Number(kuotaVal);
     const tanggalTutupVal = document.getElementById("wave-tanggal-tutup").value;
@@ -187,7 +187,7 @@ function openWaveModal(productId, wave) {
   document.getElementById("wave-product-id").value = productId;
   document.getElementById("wave-id").value = wave ? wave.id : "";
   document.getElementById("wave-label").value = wave ? wave.label : "";
-  document.getElementById("wave-harga").value = wave ? wave.harga : "";
+  document.getElementById("wave-harga").value = wave ? Number(wave.harga).toLocaleString("id-ID") : "";
   document.getElementById("wave-kuota").value = wave && wave.kuota !== null && wave.kuota !== undefined ? wave.kuota : "";
   document.getElementById("wave-tanggal-tutup").value = wave && wave.tanggal_tutup ? wave.tanggal_tutup : "";
   document.getElementById("wave-modal").style.display = "flex";

@@ -11,6 +11,28 @@ let tokoProfil = { nama: "Toko Kami" }; // dipakai di teks pesan WA, dimuat seka
 // diklik pertama kali (baru muncul, belum memilih apa pun). Klik header
 // berikutnya berfungsi sebagai select all / deselect all seperti biasa.
 let checkboxesRevealed = false;
+// PENINGKATAN UI/UX: urut tabel dengan klik judul kolom (Nota/Tanggal,
+// Total Tagihan) -- kalau aktif, MENGALAHKAN pilihan dropdown "Urutan"
+// (headerSortColumn null berarti pakai dropdown seperti biasa). Klik kolom
+// yang sama 2x buat balik arah (turun <-> naik).
+let headerSortColumn = null; // "tanggal" | "total" | null
+let headerSortDirection = "desc";
+function sortByHeader(col) {
+  if (headerSortColumn === col) {
+    headerSortDirection = headerSortDirection === "desc" ? "asc" : "desc";
+  } else {
+    headerSortColumn = col;
+    headerSortDirection = "desc";
+  }
+  currentPage = 1;
+  renderOrders();
+}
+function headerSortIcon(col) {
+  if (headerSortColumn !== col) return `<i class="ph ph-caret-up-down" style="opacity:0.35; font-size:11px;"></i>`;
+  return headerSortDirection === "desc"
+    ? `<i class="ph-bold ph-caret-down" style="font-size:11px;"></i>`
+    : `<i class="ph-bold ph-caret-up" style="font-size:11px;"></i>`;
+}
 
 // Default rentang tanggal saat halaman dibuka: 30 hari terakhir. Ini murni
 // supaya bacaan Firestore tidak membengkak seiring bertambahnya riwayat
@@ -229,6 +251,7 @@ window.onAuthReady = function (profile) {
   });
   document.getElementById("filter-urutan").addEventListener("change", () => {
     currentPage = 1;
+    headerSortColumn = null; // dropdown menang, batalkan urutan dari klik judul kolom (kalau ada)
     savePesananFilters();
     renderOrders();
   });
@@ -450,7 +473,15 @@ function getFilteredOrders() {
   //    tie-breaker nomor nota terbesar dulu untuk tanggal yang sama persis.
   //  - "input": urutan pesanan dibuat/diinput (created_at, presisi detik).
   //  - "nota": murni nomor nota terbesar dulu.
-  if (urutan === "input") {
+  if (headerSortColumn === "total") {
+    filtered.sort((a, b) => (headerSortDirection === "desc" ? b.total - a.total : a.total - b.total));
+  } else if (headerSortColumn === "tanggal") {
+    filtered.sort((a, b) =>
+      headerSortDirection === "desc"
+        ? toMillis(b.tanggal) - toMillis(a.tanggal) || getNotaSortKey(b) - getNotaSortKey(a)
+        : toMillis(a.tanggal) - toMillis(b.tanggal) || getNotaSortKey(a) - getNotaSortKey(b)
+    );
+  } else if (urutan === "input") {
     filtered.sort((a, b) => toMillis(b.created_at) - toMillis(a.created_at));
   } else if (urutan === "nota") {
     filtered.sort((a, b) => getNotaSortKey(b) - getNotaSortKey(a));
@@ -551,12 +582,12 @@ function renderOrders() {
                     : `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Klik untuk pilih semua pesanan yang terlihat" /><br /><span style="font-size:10px; font-weight:400; color:var(--gray-400);">No</span>`
                 }
               </th>
-              <th>Nota / Tanggal</th>
+              <th style="cursor:pointer; user-select:none;" onclick="sortByHeader('tanggal')">Nota / Tanggal ${headerSortIcon("tanggal")}</th>
               ${showCabangCol ? "<th>Cabang</th>" : ""}
               <th>Pemesan</th>
               <th>Produk & Gelombang</th>
               <th>Qty</th>
-              <th style="text-align:right;">Total Tagihan</th>
+              <th style="text-align:right; cursor:pointer; user-select:none;" onclick="sortByHeader('total')">Total Tagihan ${headerSortIcon("total")}</th>
               <th>Status Bayar</th>
               <th>Pengambilan</th>
               <th>Aksi</th>
@@ -967,16 +998,55 @@ async function bulkDelete() {
   }
 }
 
+// PENINGKATAN UI/UX: toast "Batalkan" (undo) setelah hapus -- modal
+// konfirmasi TETAP ADA seperti sebelumnya (supaya tidak ada yang kehapus
+// tidak sengaja gara-gara salah tap), TAPI setelah dikonfirmasi, penghapusan
+// SUNGGUHAN ke Firestore ditunda 5 detik -- kalau tombol "Batalkan" di toast
+// diklik dalam masa itu, dibatalkan (pesanan dikembalikan ke tampilan tanpa
+// pernah benar-benar terhapus dari server). Kalau halaman ditinggalkan
+// sebelum 5 detik habis, penghapusan tetap dijalankan segera (lihat listener
+// "pagehide" di bawah) -- supaya tidak ada pesanan yang "menggantung" tidak
+// pernah benar-benar terhapus gara-gara tab keburu ditutup.
+const pendingDeleteTimers = {}; // id -> { timerId }
 async function deleteOrder(id) {
   if (!(await showConfirmModal("Hapus pesanan ini secara permanen?", { okLabel: "Ya, Hapus", danger: true }))) return;
-  try {
-    await deleteOrderCascade(id);
-    showToast("Pesanan dihapus.", "success");
-    await loadOrders();
-  } catch (err) {
-    showToast(friendlyFirebaseError(err), "error");
-  }
+
+  const order = allOrders.find((o) => o.id === id);
+  if (!order) return;
+  allOrders = allOrders.filter((o) => o.id !== id);
+  renderOrders();
+
+  const timerId = setTimeout(async () => {
+    delete pendingDeleteTimers[id];
+    try {
+      await deleteOrderCascade(id);
+    } catch (err) {
+      showToast(friendlyFirebaseError(err), "error");
+      await loadOrders(); // tampilan disinkronkan ulang kalau ternyata gagal di server
+    }
+  }, 5000);
+  pendingDeleteTimers[id] = { timerId };
+
+  showUndoToast("Pesanan dihapus.", () => {
+    const pending = pendingDeleteTimers[id];
+    if (!pending) return; // sudah kepakai / masa tunda sudah habis
+    clearTimeout(pending.timerId);
+    delete pendingDeleteTimers[id];
+    allOrders.push(order);
+    renderOrders();
+  }, 5000);
 }
+// Jaga-jaga: kalau halaman ditutup/dipindah SEBELUM masa tunda 5 detik di
+// atas habis, jalankan segera semua penghapusan yang masih tertunda --
+// supaya tidak ada yang "menggantung" (tampilan sudah bilang terhapus tapi
+// sebenarnya masih ada di server) kalau baru dibuka lagi nanti.
+window.addEventListener("pagehide", () => {
+  Object.keys(pendingDeleteTimers).forEach((id) => {
+    clearTimeout(pendingDeleteTimers[id].timerId);
+    delete pendingDeleteTimers[id];
+    deleteOrderCascade(id); // fire-and-forget -- tidak bisa/perlu di-await saat halaman sedang ditutup
+  });
+});
 
 // deleteOrderCascade() sekarang di js/utils.js (dipakai bersama halaman
 // Arsip PO untuk hapus banyak pesanan sekaligus setelah dibackup).
@@ -1074,11 +1144,11 @@ function renderDetailModal(order) {
     <form id="payment-form" style="background:var(--gray-50); border-radius:10px; padding:12px; margin-bottom:14px;">
       <label style="margin-bottom:6px;">Catat Pembayaran Baru</label>
       <div style="display:flex; gap:8px;">
-        <input type="number" id="payment-amount" min="1" max="${sisa}" placeholder="Jumlah (Rp)" required style="flex:1;" />
+        <input type="text" inputmode="numeric" id="payment-amount" placeholder="Jumlah (Rp)" required style="flex:1;" oninput="formatNumberInputLive(this)" />
         <button type="submit" class="btn-primary btn-sm">Simpan</button>
       </div>
       <p style="font-size:11.5px; color:var(--gray-500); margin:6px 0 0;">
-        <a href="#" onclick="document.getElementById('payment-amount').value=${sisa}; return false;">Isi lunas (${formatRupiah(sisa)})</a>
+        <a href="#" onclick="document.getElementById('payment-amount').value=(${sisa}).toLocaleString('id-ID'); return false;">Isi lunas (${formatRupiah(sisa)})</a>
       </p>
     </form>`
         : `<div class="alert alert-success">Pesanan ini sudah lunas.</div>`
@@ -1107,7 +1177,7 @@ function renderDetailModal(order) {
   if (form) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const amount = Number(document.getElementById("payment-amount").value);
+      const amount = parseFormattedNumber(document.getElementById("payment-amount").value);
       if (amount <= 0 || amount > sisa) {
         showToast("Jumlah pembayaran tidak valid.", "error");
         return;
