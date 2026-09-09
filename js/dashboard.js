@@ -128,7 +128,7 @@ let dashProfile = null;
 // seperti tombol "Cek Nomor Nota Bentrok (Riwayat Penuh)" di Laporan.
 async function loadDashboardData(profile) {
   const container = document.getElementById("dashboard-content");
-  container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  container.innerHTML = skeletonCards(5);
   try {
     const { from, to } = getDateRange();
 
@@ -409,6 +409,7 @@ function renderDashboard() {
 
   const container = document.getElementById("dashboard-content");
   container.innerHTML = `
+    <div class="content-fade-in">
     ${jumlahJanggal > 0 ? `
     <div class="card" style="margin-bottom:16px; background:#fef2f2; border-color:#fecaca;">
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;">
@@ -518,6 +519,7 @@ function renderDashboard() {
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   `;
 

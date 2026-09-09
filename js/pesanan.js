@@ -59,6 +59,62 @@ function clearQuickFilterActive() {
   if (b) b.classList.remove("active");
 }
 
+// PENINGKATAN UI/UX (Tahap 2): filter tersimpan antar kunjungan halaman ini
+// (per browser, lewat localStorage) -- sebelumnya tiap balik ke Daftar
+// Pesanan, filter selalu reset ke default, harus diatur ulang dari nol.
+// Sengaja HANYA menyimpan field yang opsinya statis/sudah ada sejak HTML
+// dimuat (tanggal, teks, status) -- filter Cabang/Produk/Gelombang SENGAJA
+// TIDAK disimpan karena opsinya baru terisi belakangan lewat listener
+// Firestore (listenCabangFilter/listenProductFilters); memulihkan nilai ke
+// situ SEBELUM opsinya siap berisiko gagal diam-diam (browser cuma
+// mengabaikan .value yang belum ada <option>-nya).
+const PESANAN_FILTER_STORAGE_KEY = "pesananFilters_v1";
+function savePesananFilters() {
+  try {
+    localStorage.setItem(
+      PESANAN_FILTER_STORAGE_KEY,
+      JSON.stringify({
+        dari: document.getElementById("filter-dari").value,
+        sampai: document.getElementById("filter-sampai").value,
+        search: document.getElementById("filter-search").value,
+        alamat: document.getElementById("filter-alamat").value,
+        bayar: document.getElementById("filter-bayar").value,
+        ambil: document.getElementById("filter-ambil").value,
+        janggal: document.getElementById("filter-harga-janggal").checked,
+        urutan: document.getElementById("filter-urutan").value,
+        pagesize: document.getElementById("filter-pagesize").value,
+      })
+    );
+  } catch (e) {
+    // localStorage penuh/dimatikan browser -- diamkan, filter tetap jalan
+    // normal untuk kunjungan saat ini, cuma tidak diingat untuk nanti.
+  }
+}
+// Mengembalikan true kalau ada filter tersimpan & berhasil dipulihkan.
+function loadPesananFilters() {
+  let saved;
+  try {
+    saved = JSON.parse(localStorage.getItem(PESANAN_FILTER_STORAGE_KEY) || "null");
+  } catch (e) {
+    return false;
+  }
+  if (!saved) return false;
+  document.getElementById("filter-dari").value = saved.dari || "";
+  document.getElementById("filter-sampai").value = saved.sampai || "";
+  document.getElementById("filter-search").value = saved.search || "";
+  document.getElementById("filter-alamat").value = saved.alamat || "";
+  document.getElementById("filter-bayar").value = saved.bayar || "";
+  document.getElementById("filter-ambil").value = saved.ambil || "";
+  document.getElementById("filter-harga-janggal").checked = !!saved.janggal;
+  document.getElementById("filter-urutan").value = saved.urutan || "tanggal";
+  if (saved.pagesize) {
+    document.getElementById("filter-pagesize").value = saved.pagesize;
+    pageSize = Number(saved.pagesize) || pageSize;
+  }
+  if (saved.search) togglePesananFilterVisibility(); // buka panel filter biar kelihatan lagi filter apa yang aktif
+  return true;
+}
+
 function applyQuickFilter(type) {
   currentPage = 1;
 
@@ -95,6 +151,7 @@ function applyQuickFilter(type) {
   const chip = document.getElementById(type === "belum-diambil-minggu-ini" ? "quick-chip-belum-diambil" : "quick-chip-belum-lunas");
   if (chip) chip.classList.add("active");
 
+  savePesananFilters();
   loadOrders(); // rentang tanggal berubah -> query ke Firestore harus diulang
 }
 
@@ -134,6 +191,12 @@ window.onAuthReady = function (profile) {
     document.getElementById("filter-search").value = cariDariTopbar;
     togglePesananFilterVisibility(); // buka panel filter biar kelihatan lagi cari apa
   }
+  // PENINGKATAN UI/UX (Tahap 2): filter tersimpan dari kunjungan sebelumnya
+  // -- TAPI kalau datang dari banner anomali atau cari lewat topbar (di
+  // atas), NIAT eksplisit itu yang menang, bukan filter lama yang tersimpan.
+  if (!fromAnomaliLink && !cariDariTopbar) {
+    loadPesananFilters();
+  }
   loadOrders();
 
   if (canAccessAllBranches(profile)) {
@@ -143,25 +206,30 @@ window.onAuthReady = function (profile) {
   document.getElementById("filter-dari").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     loadOrders();
   });
   document.getElementById("filter-sampai").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     loadOrders();
   });
   document.getElementById("filter-search").addEventListener("input", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     debounceRender();
   });
   document.getElementById("filter-alamat").addEventListener("input", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     debounceRender();
   });
   document.getElementById("filter-urutan").addEventListener("change", () => {
     currentPage = 1;
+    savePesananFilters();
     renderOrders();
   });
   document.getElementById("filter-cabang").addEventListener("change", () => {
@@ -183,21 +251,25 @@ window.onAuthReady = function (profile) {
   document.getElementById("filter-bayar").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     renderOrders();
   });
   document.getElementById("filter-ambil").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     renderOrders();
   });
   document.getElementById("filter-harga-janggal").addEventListener("change", () => {
     currentPage = 1;
     clearQuickFilterActive();
+    savePesananFilters();
     renderOrders();
   });
   document.getElementById("filter-pagesize").addEventListener("change", (e) => {
     pageSize = Number(e.target.value) || 20;
     currentPage = 1;
+    savePesananFilters();
     renderOrders();
   });
 
@@ -317,7 +389,7 @@ async function loadOrders() {
   const dari = document.getElementById("filter-dari").value;
   const sampai = document.getElementById("filter-sampai").value;
   const container = document.getElementById("order-list");
-  container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  container.innerHTML = skeletonRows(8);
 
   try {
     let query = db.collection("orders");
@@ -412,14 +484,43 @@ function resetFilters() {
 
   if (rangeChanged) loadOrders();
   else renderOrders();
+
+  // PENINGKATAN UI/UX (Tahap 2): "Reset Filter" juga menghapus filter yang
+  // tersimpan (bukan cuma tampilan saat ini) -- supaya benar-benar bersih
+  // untuk kunjungan berikutnya, bukan cuma sekali reset lalu balik lagi ke
+  // filter lama begitu halaman dibuka ulang.
+  try {
+    localStorage.removeItem(PESANAN_FILTER_STORAGE_KEY);
+  } catch (e) {}
 }
 
 function renderOrders() {
   const list = getFilteredOrders();
   const container = document.getElementById("order-list");
 
+  // PENINGKATAN UI/UX (Tahap 2): empty state kontekstual, bukan cuma "Tidak
+  // ada pesanan yang cocok" polos untuk semua kondisi. Dibedakan dari
+  // `allOrders` (hasil query rentang tanggal+cabang, SEBELUM filter
+  // pencarian/status/produk sisi klien) vs `list` (SESUDAH semua filter):
+  // - allOrders kosong -> query rentang tanggalnya sendiri yang tidak dapat
+  //   apa-apa (bukan soal filter pencarian) -> tawarkan perluas rentang.
+  // - allOrders ada isinya tapi list kosong -> filter pencarian/status yang
+  //   mempersempit jadi nol -> tawarkan reset filter.
   if (list.length === 0) {
-    container.innerHTML = `<div class="card empty-state">Tidak ada pesanan yang cocok dengan filter.</div>`;
+    const isQueryEmpty = allOrders.length === 0;
+    container.innerHTML = `
+      <div class="card empty-state" style="text-align:center; padding:36px 20px;">
+        <i class="ph-bold ${isQueryEmpty ? "ph-calendar-blank" : "ph-magnifying-glass"}" style="font-size:34px; color:var(--gray-300); display:block; margin-bottom:10px;"></i>
+        <div style="font-weight:700; color:var(--gray-700); margin-bottom:4px;">
+          ${isQueryEmpty ? "Tidak ada pesanan di rentang tanggal ini" : "Tidak ada pesanan yang cocok"}
+        </div>
+        <div style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">
+          ${isQueryEmpty ? "Coba perluas rentang tanggal atau cabang yang dipilih." : "Coba ubah kata kunci pencarian atau filter yang aktif."}
+        </div>
+        <button type="button" class="btn-secondary btn-sm" onclick="resetFilters()" style="margin:0 auto;">
+          <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset Filter
+        </button>
+      </div>`;
     updateBulkToolbar();
     return;
   }
@@ -438,7 +539,7 @@ function renderOrders() {
   const showCabangCol = canAccessAllBranches(window.currentUserProfile);
 
   container.innerHTML = `
-    <div class="card" style="padding:0;">
+    <div class="card content-fade-in" style="padding:0;">
       <div class="table-wrap">
         <table>
           <thead>
@@ -447,7 +548,7 @@ function renderOrders() {
                 ${
                   checkboxesRevealed
                     ? `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Pilih/batal pilih semua" /><br /><a href="#" onclick="exitSelectionMode(); return false;" style="font-size:10px; color:var(--gray-400); text-decoration:underline;">Batal</a>`
-                    : `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Klik untuk mulai pilih beberapa pesanan sekaligus" /><br /><span style="font-size:10px; font-weight:400; color:var(--gray-400);">No</span>`
+                    : `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Klik untuk pilih semua pesanan yang terlihat" /><br /><span style="font-size:10px; font-weight:400; color:var(--gray-400);">No</span>`
                 }
               </th>
               <th>Nota / Tanggal</th>
@@ -510,7 +611,7 @@ function renderRow(o, idx, isOwner, showCabangCol) {
   return `
     <tr>
       <td style="text-align:center; color:var(--gray-400); font-size:12.5px;">
-        ${checkboxesRevealed ? `<input type="checkbox" ${checked} onchange="toggleSelect('${o.id}', this.checked)" />` : idx + 1}
+        ${checkboxesRevealed ? `<input type="checkbox" ${checked} onchange="toggleSelect('${o.id}', this.checked)" />` : `<a href="#" onclick="revealAndSelect('${o.id}'); return false;" style="color:inherit; text-decoration:none;" title="Klik untuk mulai pilih pesanan">${idx + 1}</a>`}
       </td>
       <td>
         <div style="font-weight:700; color:var(--gray-900);">${formatOrderNo(o)} ${janggal ? '<span title="Harga di pesanan ini berbeda dari harga gelombang yang berlaku sekarang" style="color:var(--red-600);">⚠️</span>' : ""}</div>
@@ -535,7 +636,12 @@ function renderRow(o, idx, isOwner, showCabangCol) {
         ${belumLunas ? `<div style="font-size:9.5px; color:var(--gray-400); margin-top:1px;">Bayar: ${formatRupiah(o.paid_amount || 0)}</div>` : ""}
       </td>
       <td><span class="badge ${STATUS_BAYAR_BADGE[o.status_bayar]}">${STATUS_BAYAR_LABEL[o.status_bayar].toUpperCase()}</span></td>
-      <td><span class="badge ${o.is_diambil ? "badge-green" : "badge-gray"}">${o.is_diambil ? "SUDAH" : "BELUM"}</span></td>
+      <td>
+        <span class="badge ${o.is_diambil ? "badge-green" : "badge-gray"}">${o.is_diambil ? "SUDAH" : "BELUM"}</span>
+        <button class="icon-btn" title="${o.is_diambil ? "Tandai Belum Diambil" : "Tandai Sudah Diambil"} (1 tap)" onclick="toggleSingleDiambil('${o.id}')" style="margin-left:4px; vertical-align:middle;">
+          <i class="ph-bold ${o.is_diambil ? "ph-arrow-counter-clockwise" : "ph-check-circle"}"></i>
+        </button>
+      </td>
       <td style="white-space:nowrap;">
         <div style="display:flex; gap:6px;">
           <button class="icon-btn" title="Lihat Detail / Catat Bayar" onclick="openDetailModal('${o.id}')"><i class="ph ph-eye"></i></button>
@@ -697,14 +803,20 @@ function toggleSelect(id, checked) {
   updateBulkToolbar();
 }
 function toggleSelectAll(nativeChecked) {
-  // Klik pertama pada checkbox header: cuma menampilkan checkbox per item,
-  // belum memilih apa pun. Checkbox header dikembalikan ke kondisi kosong.
+  // PENINGKATAN UI/UX (Tahap 2): sebelumnya klik pertama pada checkbox
+  // header CUMA menampilkan checkbox per item (belum memilih apa pun),
+  // baru klik ke-2 benar-benar pilih semua -- kasir sering kira tombolnya
+  // rusak/tidak merespons di klik pertama. Sekarang klik pertama langsung
+  // menampilkan checkbox SEKALIGUS memilih semua baris yang sedang
+  // terlihat, 1 klik = 1 hasil, konsisten dengan revealAndSelect() untuk
+  // klik per-baris di bawah.
   if (!checkboxesRevealed) {
     checkboxesRevealed = true;
+    const visible = getFilteredOrders();
+    visible.forEach((o) => selectedIds.add(o.id));
     renderOrders();
     return;
   }
-  // Klik-klik berikutnya: select all / deselect all seperti biasa.
   const visible = getFilteredOrders();
   if (nativeChecked) {
     visible.forEach((o) => selectedIds.add(o.id));
@@ -715,6 +827,15 @@ function toggleSelectAll(nativeChecked) {
     // difilter), otomatis balik ke tampilan nomor urut.
     if (selectedIds.size === 0) checkboxesRevealed = false;
   }
+  renderOrders();
+}
+// PENINGKATAN UI/UX (Tahap 2): klik pada kolom nomor urut (kondisi belum
+// checkboxesRevealed) langsung mengaktifkan mode pilih SEKALIGUS mencentang
+// baris yang diklik itu -- 1 klik, bukan 2 (klik nyalakan mode, lalu klik
+// lagi buat pilih baris seperti alur lama).
+function revealAndSelect(id) {
+  checkboxesRevealed = true;
+  selectedIds.add(id);
   renderOrders();
 }
 function syncSelectAllCheckbox() {
@@ -737,14 +858,62 @@ function updateBulkToolbar() {
   toolbar.style.display = count > 0 ? "block" : "none";
 }
 
+// PENINGKATAN UI/UX (Tahap 4): tombol 1-tap di baris tabel untuk ubah status
+// diambil TANPA perlu buka Detail atau masuk mode pilih massal dulu --
+// alternatif yang lebih aman dari "swipe" (tabel ini sudah bisa di-scroll
+// horizontal di layar sempit, swipe akan bentrok dengan gestur scroll itu).
+// Optimistic UI sama seperti bulkAction() di atas -- tampilan langsung
+// berubah, ditulis ke Firestore di belakang layar, di-rollback kalau gagal.
+async function toggleSingleDiambil(id) {
+  const o = allOrders.find((x) => x.id === id);
+  if (!o) return;
+  const oldValue = { is_diambil: o.is_diambil, tanggal_ambil: o.tanggal_ambil };
+  const newValue = !o.is_diambil;
+  o.is_diambil = newValue;
+  o.tanggal_ambil = newValue ? new Date() : null;
+  renderOrders();
+  try {
+    await db.collection("orders").doc(id).update({
+      is_diambil: newValue,
+      tanggal_ambil: newValue ? firebase.firestore.FieldValue.serverTimestamp() : null,
+    });
+  } catch (err) {
+    o.is_diambil = oldValue.is_diambil;
+    o.tanggal_ambil = oldValue.tanggal_ambil;
+    renderOrders();
+    showToast(friendlyFirebaseError(err), "error");
+  }
+}
+
 async function bulkAction(value) {
   if (selectedIds.size === 0) return;
   const label = value ? "Sudah Diambil" : "Belum Diambil";
 
   if (!(await showConfirmModal(`Terapkan status "${label}" ke ${selectedIds.size} pesanan terpilih?`))) return;
 
+  // PENINGKATAN UI/UX (Tahap 3): optimistic UI -- sebelumnya tampilan baru
+  // berubah SETELAH batch.commit() selesai DAN loadOrders() menarik ulang
+  // seluruh data dari server (2 round-trip network sebelum kasir lihat
+  // hasilnya). Sekarang data lokal (allOrders) & tampilan langsung diubah
+  // SEKETIKA saat tombol diklik -- terasa instan -- baru penulisan ke
+  // Firestore-nya jalan di belakang layar. Kalau ternyata gagal (jaringan
+  // putus dkk), nilai lama dikembalikan (rollback) + tampilan direnderulang
+  // + pesan error muncul, jadi tidak ada risiko tampilan "bohong" nyangkut.
+  const idsArr = Array.from(selectedIds);
+  const rollbackSnapshot = new Map(); // id -> {is_diambil, tanggal_ambil} sebelum diubah, buat rollback kalau gagal
+  idsArr.forEach((id) => {
+    const o = allOrders.find((x) => x.id === id);
+    if (!o) return;
+    rollbackSnapshot.set(id, { is_diambil: o.is_diambil, tanggal_ambil: o.tanggal_ambil });
+    o.is_diambil = value;
+    o.tanggal_ambil = value ? new Date() : null; // perkiraan sementara -- nilai pasti dari server akan menyusul lewat loadOrders() berikutnya
+  });
+  selectedIds.clear();
+  updateBulkToolbar();
+  renderOrders();
+
   const batch = db.batch();
-  selectedIds.forEach((id) => {
+  idsArr.forEach((id) => {
     const ref = db.collection("orders").doc(id);
     batch.update(ref, {
       is_diambil: value,
@@ -755,10 +924,18 @@ async function bulkAction(value) {
   try {
     await batch.commit();
     showToast("Berhasil memperbarui pesanan terpilih.", "success");
-    selectedIds.clear();
-    updateBulkToolbar();
-    await loadOrders();
   } catch (err) {
+    // Rollback -- kembalikan nilai lokal seperti semula & render ulang,
+    // supaya tampilan tidak "bohong" bilang berhasil padahal gagal di server.
+    idsArr.forEach((id) => {
+      const o = allOrders.find((x) => x.id === id);
+      const old = rollbackSnapshot.get(id);
+      if (o && old) {
+        o.is_diambil = old.is_diambil;
+        o.tanggal_ambil = old.tanggal_ambil;
+      }
+    });
+    renderOrders();
     showToast(friendlyFirebaseError(err), "error");
   }
 }
@@ -766,16 +943,27 @@ async function bulkAction(value) {
 async function bulkDelete() {
   if (selectedIds.size === 0) return;
   if (!(await showConfirmModal(`Hapus permanen ${selectedIds.size} pesanan terpilih? Tindakan ini tidak bisa dibatalkan.`, { okLabel: "Ya, Hapus", danger: true }))) return;
+  // PENINGKATAN UI/UX (Tahap 3): sebelumnya proses ini SAMA SEKALI tidak ada
+  // indikator apa pun selama berjalan -- kalau menghapus ratusan pesanan,
+  // Owner cuma melihat halaman "diam" tanpa tahu masih proses atau macet.
+  // Sekarang tabel pesanan diganti sementara dengan progress bar visual,
+  // dikembalikan normal lewat loadOrders() di akhir (baik sukses maupun gagal).
+  const container = document.getElementById("order-list");
+  const ids = Array.from(selectedIds);
+  const total = ids.length;
   try {
-    for (const id of selectedIds) {
-      await deleteOrderCascade(id);
+    for (let i = 0; i < ids.length; i++) {
+      container.innerHTML = progressBarHtml(i, total, "Menghapus pesanan");
+      await deleteOrderCascade(ids[i]);
     }
+    container.innerHTML = progressBarHtml(total, total, "Menghapus pesanan");
     showToast("Pesanan terpilih dihapus.", "success");
     selectedIds.clear();
     updateBulkToolbar();
     await loadOrders();
   } catch (err) {
     showToast(friendlyFirebaseError(err), "error");
+    await loadOrders(); // kembalikan tampilan tabel normal walau gagal di tengah jalan
   }
 }
 
@@ -897,7 +1085,7 @@ function renderDetailModal(order) {
     }
 
     <div style="font-weight:600; font-size:13.5px; margin-bottom:6px;">Riwayat Pembayaran</div>
-    <div id="payment-history"><p style="color:var(--gray-400); font-size:13px;">Memuat...</p></div>
+    <div id="payment-history">${skeletonRowsBare(2)}</div>
 
     ${renderEditLogSection(order)}
 

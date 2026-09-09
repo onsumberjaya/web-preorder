@@ -91,6 +91,38 @@ function localYmd(d) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// PENINGKATAN UI/UX (Tahap 3): potongan HTML progress bar visual, dipakai
+// bersama untuk proses panjang berulang (hapus massal, restore arsip, dst).
+// Cukup timpa innerHTML container dengan hasil fungsi ini tiap iterasi.
+// PENINGKATAN UI/UX: skeleton loading (ganti spinner polos) -- lihat CSS
+// terkait (.skeleton-*) di css/style.css. skeletonRows() buat halaman
+// berbentuk tabel (Daftar Pesanan, Laporan), skeletonCards() buat halaman
+// berbentuk kartu statistik (Dashboard).
+function skeletonRows(count) {
+  const row = `<div class="skeleton-row"><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
+  return `<div class="card" style="padding:0; overflow:hidden;">${row.repeat(count)}</div>`;
+}
+function skeletonCards(count) {
+  const card = `<div class="skeleton-card"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
+  return `<div class="skeleton-cards-grid">${card.repeat(count)}</div>`;
+}
+// Versi ringan skeletonRows() TANPA bungkus .card -- buat dipakai di dalam
+// modal/panel yang sudah punya bingkai sendiri (mis. bagian Riwayat
+// Pembayaran di Detail Pesanan), supaya tidak dobel bingkai bersarang.
+function skeletonRowsBare(count) {
+  const row = `<div class="skeleton-row" style="padding:10px 0;"><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
+  return row.repeat(count);
+}
+
+function progressBarHtml(current, total, label) {
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  return `
+    <div style="padding:20px 4px;">
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%;"></div></div>
+      <div class="progress-bar-label">${escapeHtml(label)} (${current}/${total})</div>
+    </div>`;
+}
+
 function todayInputValue() {
   return localYmd(new Date());
 }

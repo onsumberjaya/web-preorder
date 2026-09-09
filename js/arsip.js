@@ -126,7 +126,7 @@ async function previewArsipData() {
 
   arLastPreview = null;
   arLastBackup = null;
-  box.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  box.innerHTML = skeletonRowsBare(4);
 
   try {
     let ordersQuery = db
@@ -294,9 +294,12 @@ async function hapusArsipDariDatabase() {
 
   const btn = document.getElementById("ar-delete-btn");
   if (btn) btn.disabled = true;
+  const previewBox = document.getElementById("ar-preview-box");
+  const total = arLastBackup.orderIds.length;
   let deleted = 0;
   try {
     for (const id of arLastBackup.orderIds) {
+      previewBox.innerHTML = progressBarHtml(deleted, total, "Menghapus dari database");
       await deleteOrderCascade(id);
       deleted++;
     }
@@ -370,7 +373,7 @@ function handleRestoreFileSelected(e) {
     return;
   }
 
-  previewBox.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  previewBox.innerHTML = skeletonRowsBare(3);
   const reader = new FileReader();
   reader.onload = () => {
     try {
@@ -421,7 +424,7 @@ async function restoreArsipData() {
 
   for (let i = 0; i < orders.length; i++) {
     const raw = orders[i];
-    previewBox.innerHTML = `<div class="loading-center"><div class="spinner"></div></div><p style="text-align:center; font-size:12.5px; color:var(--gray-500);">Memulihkan pesanan ${i + 1}/${total}...</p>`;
+    previewBox.innerHTML = progressBarHtml(i, total, "Memulihkan pesanan");
     try {
       const { __payments, id, ...orderFieldsPlain } = raw;
       const orderRef = db.collection("orders").doc(id);

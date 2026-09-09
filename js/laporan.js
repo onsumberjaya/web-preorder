@@ -324,7 +324,7 @@ async function applyReportFilter() {
   const container = document.getElementById("laporan-table");
   const prevHtml = container ? container.innerHTML : "";
   try {
-    if (container) container.innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+    if (container) container.innerHTML = skeletonRows(8);
     // Tanggal "Dari"/"Sampai" menentukan query ke server (lihat loadLaporanOrders),
     // jadi setiap klik "Terapkan Filter" perlu baca ulang dari Firestore --
     // bukan cuma menyaring data yang sudah ada di memori seperti sebelumnya.
@@ -454,7 +454,7 @@ function renderReport() {
     .join("");
 
   document.getElementById("laporan-table").innerHTML = `
-    <div class="card" style="padding:0;">
+    <div class="card content-fade-in" style="padding:0;">
       <div class="table-wrap">
         <table>
           <thead>

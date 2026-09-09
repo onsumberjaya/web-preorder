@@ -33,7 +33,7 @@ function renderSidebar(profile) {
         <div class="logo"><i class="ph-bold ph-plant"></i></div>
         <div>
           <h1>TOKO SUMBER JAYA</h1>
-          <p class="app-meta">Sistem Manajemen Pesanan Preorder <span class="app-version">v1.1</span></p>
+          <p class="app-meta">Sistem Manajemen Pesanan Preorder <span class="app-version">v1.2</span></p>
         </div>
       </div>
       <div class="sidebar-nav">${navHtml}</div>
@@ -47,6 +47,7 @@ function renderSidebar(profile) {
   }
 
   renderTopbar(profile);
+  renderBottomNav(profile, currentPage);
   fillTopbarCabangName(profile);
   ensureChangePasswordModal();
   updateThemeToggleUI(getCurrentTheme());
@@ -57,6 +58,37 @@ function renderSidebar(profile) {
   if (localStorage.getItem("sidebarHidden") === "1") {
     document.body.classList.add("sidebar-hidden");
   }
+}
+
+// PENINGKATAN UI/UX (Tahap 4): bottom navigation bar khusus layar sempit
+// (<=860px, breakpoint sama dengan sidebar/topbar mobile yang sudah ada) --
+// 4 menu paling sering dipakai (semua role bisa akses, tanpa perlu buka
+// sidebar hamburger dulu tiap pindah), plus 1 tombol "Menu" yang membuka
+// sidebar penuh untuk sisanya (Produk, Arsip, Akun, dst). Elemennya
+// `<div id="mobile-bottom-nav"></div>` -- placeholder statis yang sudah
+// ditaruh di tiap file HTML (sama seperti #mobile-topbar/#sidebar),
+// disembunyikan lewat CSS di layar lebar (lihat css/style.css).
+function renderBottomNav(profile, currentPage) {
+  const el = document.getElementById("mobile-bottom-nav");
+  if (!el) return;
+  const items = [
+    { href: "pesanan.html", icon: "ph-clipboard-text", label: "Pesanan" },
+    { href: "input-pesanan.html", icon: "ph-plus-circle", label: "Input" },
+    { href: "dashboard.html", icon: "ph-chart-line-up", label: "Dashboard" },
+    { href: "laporan.html", icon: "ph-file-arrow-down", label: "Laporan" },
+  ];
+  el.innerHTML =
+    items
+      .map(
+        (item) => `
+      <a class="bottom-nav-item ${item.href === currentPage ? "active" : ""}" href="${item.href}">
+        <i class="ph-bold ${item.icon}"></i><span>${item.label}</span>
+      </a>`
+      )
+      .join("") +
+    `<button type="button" class="bottom-nav-item" onclick="toggleMenu()">
+      <i class="ph-bold ph-list"></i><span>Menu</span>
+    </button>`;
 }
 
 function renderTopbar(profile) {
@@ -78,7 +110,7 @@ function renderTopbar(profile) {
       <span class="logo"><span class="logo-icon"><i class="ph-bold ph-plant"></i></span>Benih Preorder</span>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
-      <button class="topbar-toggle-btn" onclick="toggleGlobalSearch()" title="Cari pesanan"><i class="ph-bold ph-magnifying-glass"></i></button>
+      <button class="topbar-toggle-btn" onclick="toggleGlobalSearch()" title="Cari pesanan (Ctrl+K)"><i class="ph-bold ph-magnifying-glass"></i></button>
       <div class="account-menu">
         <button type="button" class="account-menu-btn" onclick="toggleAccountMenu(event)">
           <span class="avatar">${escapeHtml(initials)}</span>
@@ -135,6 +167,27 @@ function submitGlobalSearch(e) {
   if (!q) return;
   window.location.href = "pesanan.html?cari=" + encodeURIComponent(q);
 }
+
+// PENINGKATAN UI/UX (Tahap 4): shortcut Ctrl/Cmd+K -- buka bar pencarian
+// global dari halaman manapun tanpa lepas keyboard/cari ikon kaca pembesar.
+// Dipasang sekali di sini (nav.js dimuat di semua halaman berlogin).
+document.addEventListener("keydown", (e) => {
+  const isShortcut = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k";
+  if (!isShortcut) return;
+  // Jangan sampai menimpa shortcut Ctrl/Cmd+K bawaan browser kalau memang
+  // fokusnya sedang di alamat/luar halaman -- tapi di dalam halaman ini,
+  // preventDefault supaya tidak bentrok dengan shortcut bawaan browser
+  // (mis. Ctrl+K di beberapa browser membuka bar alamat).
+  e.preventDefault();
+  toggleGlobalSearch();
+});
+// Esc buat nutup lagi, dari kondisi form manapun (termasuk lagi ngetik di
+// input pencarian itu sendiri).
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const bar = document.getElementById("global-search-bar");
+  if (bar && bar.style.display !== "none") toggleGlobalSearch();
+});
 
 // Isi nama cabang di sebelah label role (kalau user ini Karyawan cabang),
 // dilakukan async terpisah dari renderTopbar supaya render awal tidak perlu

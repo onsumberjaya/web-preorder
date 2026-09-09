@@ -16,6 +16,87 @@ function emptyLine() {
 }
 
 let productsListReady = false;
+let customerHistory = []; // [{nama, alamat, no_hp}], dedup dari riwayat pesanan terakhir -- dipakai autocomplete Nama Pembeli
+
+// PENINGKATAN UI/UX (Tahap 3): autocomplete Nama Pembeli. Sengaja TIDAK
+// query Firestore per ketikan (mahal, dan perlu index composite baru untuk
+// Karyawan cabang) -- sekali saat halaman dibuka, tarik riwayat pesanan
+// TERAKHIR (limit 300, pakai index cabang_id+tanggal yang SUDAH ADA, tidak
+// perlu index baru) lalu semua pencocokan nama dilakukan di sisi klien
+// (JS biasa, instan, tanpa round-trip jaringan tiap ketik). Konsekuensinya:
+// cuma pembeli yang pernah pesan dalam ~300 pesanan terakhir yang muncul di
+// saran -- pembeli sangat lama/jarang tidak akan tersaran, tapi itu wajar
+// untuk fitur pelengkap seperti ini (bukan pencarian riwayat penuh).
+async function loadCustomerHistoryForAutocomplete(profile) {
+  try {
+    let query = db.collection("orders").orderBy("tanggal", "desc").limit(300);
+    if (profile.role === "karyawan" && profile.cabang_id) {
+      query = db.collection("orders").where("cabang_id", "==", profile.cabang_id).orderBy("tanggal", "desc").limit(300);
+    }
+    const snap = await query.get();
+    const seen = new Set();
+    const list = [];
+    snap.docs.forEach((d) => {
+      const o = d.data();
+      if (!o.nama_pembeli) return;
+      const key = o.nama_pembeli.toLowerCase() + "|" + (o.no_hp || "");
+      if (seen.has(key)) return;
+      seen.add(key);
+      list.push({ nama: o.nama_pembeli, alamat: o.alamat || "", no_hp: o.no_hp || "" });
+    });
+    customerHistory = list;
+  } catch (err) {
+    // Diamkan -- autocomplete cuma pelengkap. Kalau gagal dimuat (mis.
+    // koneksi lambat), form Input Pesanan tetap 100% bisa dipakai normal,
+    // cuma tanpa saran nama pembeli.
+  }
+}
+
+function renderNamaSuggestions(query) {
+  const dropdown = document.getElementById("nama-suggestions");
+  if (!dropdown) return;
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) {
+    dropdown.classList.remove("show");
+    dropdown.innerHTML = "";
+    return;
+  }
+  const matches = customerHistory.filter((c) => c.nama.toLowerCase().includes(q)).slice(0, 6);
+  if (matches.length === 0) {
+    dropdown.classList.remove("show");
+    dropdown.innerHTML = "";
+    return;
+  }
+  dropdown.innerHTML = matches
+    .map(
+      (c, i) => `
+      <div class="autocomplete-item" data-idx="${i}" onmousedown="selectNamaSuggestion(${i})">
+        <div class="ac-nama">${escapeHtml(c.nama)}</div>
+        <div class="ac-meta">${escapeHtml(c.no_hp || "-")}${c.alamat ? " &middot; " + escapeHtml(c.alamat) : ""}</div>
+      </div>`
+    )
+    .join("");
+  dropdown.dataset.matches = JSON.stringify(matches);
+  dropdown.classList.add("show");
+}
+// PENTING: dipanggil lewat "onmousedown" (bukan onclick) di renderNamaSuggestions()
+// di atas -- mousedown terjadi SEBELUM event "blur" pada field nama, jadi
+// klik saran ini tidak keburu ditutup duluan oleh listener blur (yang
+// menyembunyikan dropdown ini saat fokus pindah).
+function selectNamaSuggestion(idx) {
+  const dropdown = document.getElementById("nama-suggestions");
+  const matches = JSON.parse(dropdown.dataset.matches || "[]");
+  const c = matches[idx];
+  if (!c) return;
+  document.getElementById("f-nama").value = c.nama;
+  document.getElementById("f-alamat").value = c.alamat;
+  document.getElementById("f-nohp").value = c.no_hp;
+  dropdown.classList.remove("show");
+  dropdown.innerHTML = "";
+  validateAlamatField();
+  validateNoHpField();
+  updateSummaryPanel();
+}
 
 window.onAuthReady = async function (profile) {
   const params = new URLSearchParams(location.search);
@@ -63,6 +144,11 @@ window.onAuthReady = async function (profile) {
       return;
     }
   }
+
+  // Autocomplete Nama Pembeli -- tidak perlu ditunggu (fire-and-forget),
+  // form tetap bisa dipakai normal sebelum riwayatnya selesai dimuat, saran
+  // cuma akan kosong sebentar di awal.
+  loadCustomerHistoryForAutocomplete(profile);
 
   // Daftar cabang -- dipakai buat dropdown pilih cabang (Owner/Admin Kasir)
   // atau buat menampilkan nama cabang yang terkunci (Karyawan cabang).
@@ -269,17 +355,21 @@ function renderForm() {
             <label>Tanggal *</label>
             <input type="date" id="f-tanggal" required value="${tanggalVal}" />
           </div>
-          <div class="field">
+          <div class="field" style="position:relative;">
             <label>Nama Pembeli *</label>
-            <input type="text" id="f-nama" required minlength="3" value="${escapeHtml(namaVal)}" />
+            <input type="text" id="f-nama" required minlength="3" value="${escapeHtml(namaVal)}" autocomplete="off" />
+            <div class="field-error" id="f-nama-error"></div>
+            <div class="autocomplete-dropdown" id="nama-suggestions"></div>
           </div>
           <div class="field">
             <label>Alamat *</label>
             <input type="text" id="f-alamat" required minlength="3" value="${escapeHtml(alamatVal)}" />
+            <div class="field-error" id="f-alamat-error"></div>
           </div>
           <div class="field">
             <label>No. HP</label>
             <input type="text" id="f-nohp" value="${escapeHtml(noHpVal)}" />
+            <div class="field-error" id="f-nohp-error"></div>
           </div>
           <div class="field">
             <label>Catatan</label>
@@ -337,6 +427,29 @@ function renderForm() {
   const bayarInput = document.getElementById("f-bayar");
   if (bayarInput) bayarInput.addEventListener("input", updateTotalDisplay);
   document.getElementById("f-nama").addEventListener("input", updateSummaryPanel);
+  document.getElementById("f-nama").addEventListener("input", (e) => renderNamaSuggestions(e.target.value));
+  document.getElementById("f-nama").addEventListener("blur", () => {
+    // Ditunda dikit (bukan langsung disembunyikan) supaya klik saran (yang
+    // pakai "onmousedown") sempat kepicu duluan sebelum dropdown-nya hilang.
+    setTimeout(() => document.getElementById("nama-suggestions").classList.remove("show"), 150);
+  });
+  // PENINGKATAN UI/UX (Tahap 2): validasi real-time -- dicek pas field
+  // ditinggalkan (blur), bukan cuma pas klik Simpan seperti sebelumnya.
+  // Kalau field-nya SUDAH pernah ditandai error (has-error), dicek lagi tiap
+  // ketik ("input") juga supaya pesan errornya hilang segera saat sudah
+  // diperbaiki, tidak perlu pindah fokus dulu baru hilang.
+  document.getElementById("f-nama").addEventListener("blur", validateNamaField);
+  document.getElementById("f-nama").addEventListener("input", () => {
+    if (document.getElementById("f-nama").closest(".field").classList.contains("has-error")) validateNamaField();
+  });
+  document.getElementById("f-alamat").addEventListener("blur", validateAlamatField);
+  document.getElementById("f-alamat").addEventListener("input", () => {
+    if (document.getElementById("f-alamat").closest(".field").classList.contains("has-error")) validateAlamatField();
+  });
+  document.getElementById("f-nohp").addEventListener("blur", validateNoHpField);
+  document.getElementById("f-nohp").addEventListener("input", () => {
+    if (document.getElementById("f-nohp").closest(".field").classList.contains("has-error")) validateNoHpField();
+  });
   // PERBAIKAN: sebelumnya di sini cuma updateSummaryPanel() -- #f-total (&
   // #f-total-mobile) baru terisi angka yang benar setelah ada interaksi
   // (ubah jumlah/ubah bayar), jadi kalau baru buka Edit Pesanan untuk
@@ -542,26 +655,56 @@ function buildEditSummary(oldData, newData) {
   return parts.length ? parts.join(", ") : "Pesanan disimpan ulang (tidak ada perubahan data terdeteksi)";
 }
 
+// PENINGKATAN UI/UX (Tahap 2): validasi real-time. Masing-masing fungsi ini
+// mengecek 1 field, menulis pesan error inline (atau mengosongkannya kalau
+// valid), dan mengembalikan true/false -- dipakai SAAT field ditinggalkan
+// (blur, lihat pemasangan listener-nya di renderForm()) MAUPUN saat submit
+// (lihat handleSubmit()), jadi aturannya cuma ditulis 1 kali di sini, tidak
+// dobel/berisiko beda antara pengecekan real-time vs submit.
+function setFieldError(fieldId, errorId, message) {
+  const field = document.getElementById(fieldId).closest(".field");
+  const errorEl = document.getElementById(errorId);
+  if (message) {
+    field.classList.add("has-error");
+    errorEl.textContent = message;
+  } else {
+    field.classList.remove("has-error");
+    errorEl.textContent = "";
+  }
+}
+function validateNamaField() {
+  const v = document.getElementById("f-nama").value.trim();
+  const msg = v.length < 3 ? "Nama Pembeli wajib diisi, minimal 3 karakter." : "";
+  setFieldError("f-nama", "f-nama-error", msg);
+  return !msg;
+}
+function validateAlamatField() {
+  const v = document.getElementById("f-alamat").value.trim();
+  const msg = v.length < 3 ? "Alamat wajib diisi, minimal 3 karakter." : "";
+  setFieldError("f-alamat", "f-alamat-error", msg);
+  return !msg;
+}
+function validateNoHpField() {
+  const v = document.getElementById("f-nohp").value.trim();
+  const msg = !isValidNoHp(v) ? "Format tidak valid. Contoh yang benar: 08123456789 (boleh kosong)." : "";
+  setFieldError("f-nohp", "f-nohp-error", msg);
+  return !msg;
+}
+
 async function handleSubmit(e) {
   e.preventDefault();
   const alertBox = document.getElementById("order-form-alert");
   alertBox.innerHTML = "";
 
-  const namaCek = document.getElementById("f-nama").value.trim();
-  const alamatCek = document.getElementById("f-alamat").value.trim();
-  if (namaCek.length < 3) {
-    alertBox.innerHTML = `<div class="alert alert-error">Nama Pembeli wajib diisi, minimal 3 karakter.</div>`;
+  if (!validateNamaField()) {
     document.getElementById("f-nama").focus();
     return;
   }
-  if (alamatCek.length < 3) {
-    alertBox.innerHTML = `<div class="alert alert-error">Alamat wajib diisi, minimal 3 karakter.</div>`;
+  if (!validateAlamatField()) {
     document.getElementById("f-alamat").focus();
     return;
   }
-  const noHpCek = document.getElementById("f-nohp").value.trim();
-  if (!isValidNoHp(noHpCek)) {
-    alertBox.innerHTML = `<div class="alert alert-error">Format No. HP tidak valid. Contoh yang benar: 08123456789 (boleh dikosongkan kalau memang tidak ada).</div>`;
+  if (!validateNoHpField()) {
     document.getElementById("f-nohp").focus();
     return;
   }
