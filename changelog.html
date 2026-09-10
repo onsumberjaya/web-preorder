@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Changelog - Benih Preorder</title>
+<link rel="stylesheet" href="css/style.css" />
+<script>(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#16a34a" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Benih Preorder" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://www.gstatic.com" />
+<link rel="preconnect" href="https://unpkg.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2" defer></script>
+<script src="js/pwa-register.js?v=10" defer></script>
+<style>
+  /* ---- Gaya khusus halaman Changelog (tidak mengubah style.css global) ---- */
+  .changelog-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--gray-500); text-decoration: none; margin-bottom: 16px; }
+  .changelog-back:hover { color: var(--brand-600); }
+  .changelog-entry { position: relative; padding-left: 26px; padding-bottom: 28px; }
+  .changelog-entry:last-child { padding-bottom: 4px; }
+  .changelog-entry::before {
+    content: ""; position: absolute; left: 4px; top: 6px; width: 10px; height: 10px;
+    border-radius: 50%; background: var(--brand-600); border: 3px solid var(--brand-100);
+  }
+  .changelog-entry::after {
+    content: ""; position: absolute; left: 8px; top: 20px; bottom: 0; width: 1px; background: var(--gray-200);
+  }
+  .changelog-entry:last-child::after { display: none; }
+  .changelog-version-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .changelog-version-row h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--gray-900); }
+  .changelog-badge-new { background: var(--brand-600); color: #fff; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .changelog-list { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--gray-700); line-height: 1.9; }
+  .changelog-list li::marker { color: var(--brand-500); }
+  .changelog-note { text-align: center; color: var(--gray-400); font-size: 12px; padding: 20px 0 6px; }
+</style>
+</head>
+<body>
+  <div id="mobile-topbar"></div>
+  <div id="mobile-bottom-nav"></div>
+  <div id="sidebar-overlay"></div>
+  <div class="app-shell">
+    <nav id="sidebar"></nav>
+    <main class="content">
+      <a href="tentang.html" class="changelog-back"><i class="ph-bold ph-arrow-left"></i> Kembali ke Tentang</a>
+      <h1 class="page-title">Riwayat Pembaruan (Changelog)</h1>
+      <p class="page-subtitle">Ringkasan perubahan & fitur baru di tiap versi aplikasi.</p>
+
+      <div class="card">
+        <div class="changelog-entry">
+          <div class="changelog-version-row">
+            <h2>Versi 1.3</h2>
+            <span class="changelog-badge-new">Terbaru</span>
+          </div>
+          <ul class="changelog-list">
+            <li>Toast "Batalkan" (undo) selama beberapa detik setelah hapus pesanan — konfirmasi hapus tetap ada seperti biasa.</li>
+            <li>Format angka otomatis (pemisah ribuan) saat mengetik nominal uang, supaya lebih gampang dicek sebelum disimpan.</li>
+            <li>Urutkan Daftar Pesanan langsung dengan klik judul kolom "Nota/Tanggal" atau "Total Tagihan".</li>
+            <li>Badge angka di menu "Daftar Pesanan" — jumlah pesanan hari ini yang belum lunas.</li>
+            <li>Draft Input Pesanan tersimpan otomatis di browser, ditawarkan untuk dilanjutkan kalau form belum sempat disimpan.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.2</h2></div>
+          <ul class="changelog-list">
+            <li>Animasi loading skeleton di semua halaman (Daftar Pesanan, Laporan, Dashboard, Arsip PO, Detail Pesanan).</li>
+            <li>Animasi halus saat modal dibuka & tombol ditekan.</li>
+            <li>Validasi real-time di form Input Pesanan (nama, alamat, No. HP dicek sambil mengetik).</li>
+            <li>Tampilan "tidak ada data" yang lebih membantu, membedakan filter tidak cocok vs memang belum ada pesanan.</li>
+            <li>Mode pilih pesanan jadi 1 klik (dulu perlu 2 klik terpisah).</li>
+            <li>Filter Daftar Pesanan (tanggal, pencarian, status) diingat otomatis antar kunjungan.</li>
+            <li>Tampilan langsung berubah seketika saat menandai status Lunas/Diambil (tidak perlu tunggu server).</li>
+            <li>Progress bar saat hapus massal & restore Arsip PO.</li>
+            <li>Saran nama pembeli otomatis (autocomplete) di Input Pesanan berdasarkan riwayat pesanan.</li>
+            <li>Pencarian cepat dengan pintasan keyboard Ctrl/Cmd+K.</li>
+            <li>Menu navigasi bawah layar khusus tampilan HP.</li>
+            <li>Tombol tandai status 1-tap langsung di baris tabel pesanan.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.1</h2></div>
+          <ul class="changelog-list">
+            <li>Perbaikan tanggal yang bisa mundur 1 hari di dini hari (bug zona waktu).</li>
+            <li>Perbaikan jumlah baris tabel Daftar Pesanan yang sempat tidak sesuai pilihan dropdown.</li>
+            <li>Dashboard sekarang default menampilkan "Bulan Ini", bukan seluruh riwayat toko (lebih ringan & cepat).</li>
+            <li>Keamanan data rekap Dashboard diperketat (mencegah data rekap ter-reset oleh akun Karyawan).</li>
+            <li>Restore Arsip PO (impor data lama) dikunci khusus akun Owner.</li>
+            <li>Perbaikan akun baru yang bisa "hilang setengah jalan" kalau pembuatan akun gagal di tengah proses.</li>
+            <li>Perbaikan tampilan mode gelap saat browser mengisi otomatis username/password.</li>
+            <li>Aplikasi terasa lebih ringan & cepat saat pindah halaman (pemuatan skrip dioptimalkan, data di-cache).</li>
+            <li>Total pesanan tetap terlihat (tidak tersembunyi) saat mengisi form di layar HP.</li>
+            <li>Tombol sembunyikan/tampilkan angka "Total Uang" di Dashboard.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.0</h2></div>
+          <ul class="changelog-list">
+            <li>Rilis awal — daftar lengkap fitur inti ada di halaman <a href="tentang.html">Tentang</a>, bagian "Fitur Utama".</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="changelog-note">Tanggal rilis presisi tidak dicatat di sini — nomor versi berurutan sesuai kapan perubahan digabungkan.</p>
+    </main>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="js/firebase-config.js?v=10" defer></script>
+  <script src="js/utils.js?v=10" defer></script>
+  <script src="js/nav.js?v=10" defer></script>
+  <script src="js/auth-guard.js?v=10" defer></script>
+  <script src="js/presence.js?v=10" defer></script>
+</body>
+</html>

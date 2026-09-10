@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "laporan.html", icon: "ph-file-arrow-down", label: "Laporan & Export", ownerOnly: false },
   { href: "arsip.html", icon: "ph-archive", label: "Arsip PO", ownerOnly: false, roles: ["owner", "admin_kasir"] },
   { href: "panduan.html", icon: "ph-book-open-text", label: "Panduan", ownerOnly: false },
+  { href: "tentang.html", icon: "ph-info", label: "Tentang", ownerOnly: false },
 ];
 
 function renderSidebar(profile) {
@@ -34,7 +35,7 @@ function renderSidebar(profile) {
         <div class="logo"><i class="ph-bold ph-plant"></i></div>
         <div>
           <h1>TOKO SUMBER JAYA</h1>
-          <p class="app-meta">Sistem Manajemen Pesanan Preorder <span class="app-version">v1.3</span></p>
+          <p class="app-meta">Sistem Manajemen Pesanan Preorder <a href="tentang.html" class="app-version" style="text-decoration:none;">v1.3</a></p>
         </div>
       </div>
       <div class="sidebar-nav">${navHtml}</div>

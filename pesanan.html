@@ -104,7 +104,7 @@
           <strong id="bulk-count">0 dipilih</strong>
           <button class="btn-secondary btn-sm" onclick="bulkAction(true)">Tandai Sudah Diambil</button>
           <button class="btn-secondary btn-sm" onclick="bulkAction(false)">Tandai Belum Diambil</button>
-          <button class="btn-secondary btn-sm" style="color:var(--brand-700); border-color:var(--brand-300);" onclick="openWaMassalModal()"><i class="ph-bold ph-whatsapp-logo"></i> Kirim WA Massal</button>
+          <button class="btn-secondary btn-sm" style="color:var(--brand-700); border-color:var(--brand-300);" onclick="openWaMassalModal()"><i class="ph-bold ph-whatsapp-logo"></i> Kirim WA (satu per satu)</button>
           <button class="btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" style="display:none;">Hapus</button>
           <button class="btn-secondary btn-sm" onclick="exitSelectionMode()" style="margin-left:auto;"><i class="ph-bold ph-x"></i> Batal</button>
         </div>
@@ -121,14 +121,15 @@
     </div>
   </div>
 
-  <!-- Modal Kirim WA Massal -->
+  <!-- Modal Kirim WA (Satu per Satu) -- lihat penjelasan di js/utils.js soal kenapa tidak bisa benar-benar "massal"/otomatis -->
   <div class="modal-backdrop" id="wa-massal-modal" style="display:none;">
     <div class="modal-box" style="max-width:520px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-        <h3 style="margin:0;">Kirim WA Massal</h3>
+        <h3 style="margin:0;">Kirim WA (Satu per Satu)</h3>
         <button class="icon-btn" onclick="closeWaMassalModal()"><i class="ph ph-x"></i></button>
       </div>
-      <p style="color:var(--gray-500); font-size:13px; margin:4px 0 14px;">Klik tombol WA di tiap baris satu per satu -- WhatsApp gratis tidak bisa mengirim ke banyak nomor sekaligus otomatis. Baris yang sudah diklik akan ditandai "Terkirim" (cuma penanda sementara selama modal ini terbuka).</p>
+      <p style="color:var(--gray-500); font-size:13px; margin:4px 0 4px;">Klik tombol WA di tiap baris satu per satu -- WhatsApp gratis (tanpa biaya API berbayar) tidak punya cara mengirim ke banyak nomor sekaligus secara otomatis, jadi ini daftar kerja yang dijalankan berurutan, bukan tombol "kirim semua". Tanda "Terkirim" cuma penanda sudah diklik (sementara, hilang lagi kalau modal ditutup) -- bukan konfirmasi WhatsApp beneran sampai.</p>
+      <p id="wa-massal-progress" style="color:var(--brand-700); font-size:12.5px; font-weight:700; margin:0 0 14px;"></p>
       <div id="wa-massal-list" style="max-height:60vh; overflow-y:auto;"></div>
     </div>
   </div>

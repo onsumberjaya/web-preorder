@@ -29,7 +29,7 @@
 // PERNAH membuka halaman itu sekali pun secara online (baru akan ikut
 // ke-cache begitu berhasil diambil dari jaringan) -- bukan "selalu gagal"
 // tapi tetap lebih baik langsung tersedia dari awal.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3"; // v3: + tentang.html, changelog.html
 const CACHE_NAME = `benih-preorder-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_FILES = [
@@ -45,6 +45,8 @@ const APP_SHELL_FILES = [
   "toko.html",
   "arsip.html",
   "panduan.html",
+  "tentang.html",
+  "changelog.html",
   "manifest.json",
   "css/style.css",
   "js/firebase-config.js",

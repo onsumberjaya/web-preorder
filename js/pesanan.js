@@ -745,7 +745,10 @@ function kirimWaSmart(orderId) {
   }
 }
 
-// ---------- Kirim WA Massal ----------
+// ---------- Kirim WA (Satu per Satu) -- namanya sengaja BUKAN "Massal",
+// lihat catatan di js/utils.js (openWaLink) kenapa WA gratis lewat wa.me
+// cuma bisa buka 1 chat per klik, tidak ada cara kirim ke banyak nomor
+// sekaligus otomatis tanpa API WhatsApp Business berbayar. ----------
 // Bukan pengiriman otomatis (WhatsApp gratis tidak menyediakan itu) --
 // cuma menyiapkan SATU daftar dari pesanan yang sudah dipilih (checkbox)
 // lewat mode Pilih di tabel, supaya tinggal diklik tombol WA-nya satu per
@@ -767,13 +770,20 @@ function closeWaMassalModal() {
 
 function renderWaMassalList() {
   const container = document.getElementById("wa-massal-list");
+  const progressEl = document.getElementById("wa-massal-progress");
   const orders = allOrders.filter((o) => selectedIds.has(o.id));
   const bisaWa = orders.filter((o) => o.no_hp);
   const tanpaHp = orders.length - bisaWa.length;
 
   if (bisaWa.length === 0) {
+    if (progressEl) progressEl.textContent = "";
     container.innerHTML = `<div class="alert alert-info">Tidak ada pesanan terpilih yang punya nomor HP.</div>`;
     return;
+  }
+  // Penghitung "X dari Y sudah diklik" -- memperjelas ini daftar kerja
+  // berurutan yang sedang dikerjakan, bukan proses otomatis di belakang layar.
+  if (progressEl) {
+    progressEl.textContent = `${waMassalSentIds.size} dari ${bisaWa.length} sudah diklik`;
   }
 
   const rows = bisaWa
