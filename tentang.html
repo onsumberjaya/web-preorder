@@ -25,10 +25,10 @@
   /* ---- Gaya khusus halaman Tentang (tidak mengubah style.css global) ---- */
   .tentang-hero { text-align: center; padding: 32px 20px 28px; }
   .tentang-hero .logo-big {
-    width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 16px;
-    background: linear-gradient(135deg, var(--brand-600), var(--brand-300));
-    color: #fff; display: flex; align-items: center; justify-content: center; font-size: 32px;
+    width: 84px; height: 84px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
   }
+  .tentang-hero .logo-big svg { width: 100%; height: 100%; }
   .tentang-hero h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; color: var(--gray-900); }
   .tentang-hero p { margin: 0; color: var(--gray-500); font-size: 13.5px; }
   .tentang-version-badge {
@@ -71,7 +71,31 @@
     <main class="content">
       <div class="card">
         <div class="tentang-hero">
-          <div class="logo-big"><i class="ph-bold ph-plant"></i></div>
+          <div class="logo-big">
+            <!-- Logo "topi + SJ" -- bentuk mengacu permintaan user, warna
+                 pakai gradien brand hijau aplikasi ini (bukan merah seperti
+                 contoh gambar acuan), huruf pakai font Inter Extra Bold yang
+                 sudah dipakai di seluruh aplikasi (tidak perlu muat font baru).
+                 Seluruh siluet (atap + bibir + mangkuk) SATU path menyambung
+                 tanpa putus (bukan gabungan rect+path terpisah seperti versi
+                 sebelumnya) -- lingkaran di belakang "SJ" pakai var(--surface)
+                 supaya otomatis putih di mode terang / gelap-navy di mode
+                 gelap, ikut tema aktif secara otomatis. -->
+            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="sjLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:var(--brand-600);" />
+                  <stop offset="100%" style="stop-color:var(--brand-300);" />
+                </linearGradient>
+              </defs>
+              <!-- Siluet menyatu: atap segitiga -> ujung bibir membulat -> mangkuk -> ujung bibir satunya -> balik ke puncak, 1 path tertutup -->
+              <path d="M60 8 L6 66 C6 76 14 82 24 82 Q60 145 96 82 C106 82 114 76 114 66 Z" fill="url(#sjLogoGrad)" />
+              <!-- Lingkaran latar untuk "SJ", ikut tema aktif, garis tepi pakai gradien yang sama dengan siluet di atasnya supaya menyatu -->
+              <circle cx="60" cy="86" r="24" fill="var(--surface)" stroke="url(#sjLogoGrad)" stroke-width="3" />
+              <!-- Inisial SJ -->
+              <text x="60" y="93" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="22" fill="url(#sjLogoGrad)">SJ</text>
+            </svg>
+          </div>
           <h1>Toko Sumber Jaya</h1>
           <p>Sistem Manajemen Pesanan Preorder Benih</p>
           <div class="tentang-version-badge"><i class="ph-bold ph-tag"></i> Versi 1.3</div>
@@ -151,7 +175,6 @@
             <ul>
               <li>Kirim pesan WhatsApp "siap diambil" 1 klik</li>
               <li>Kirim pesan pengingat tagihan belum lunas</li>
-              <li>Kirim WA massal ke banyak pembeli sekaligus</li>
             </ul>
           </div>
           <div class="card tentang-fitur-card">

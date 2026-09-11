@@ -73,19 +73,47 @@ function toTitleCase(str) {
     .replace(/(^|\s|[-/])\S/g, (c) => c.toUpperCase());
 }
 
+function updateProdukFilterOptionsDash() {
+  const select = document.getElementById("filter-produk-dash");
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">Semua Produk</option>';
+  dashProducts.forEach((p) => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.nama;
+    select.appendChild(opt);
+  });
+  if (dashProductsMap[currentValue]) select.value = currentValue;
+}
+
+// PENINGKATAN UI/UX: filter Produk di Dashboard -- kalau produk dipilih,
+// dropdown Gelombang ikut disaring cuma menampilkan gelombang milik produk
+// itu (sama seperti pola di Daftar Pesanan), bukan lagi semua label
+// gelombang unik dari seluruh produk.
 function updateGelombangFilterOptionsDash() {
   const gelSelect = document.getElementById("filter-gelombang-dash");
   const currentValue = gelSelect.value;
-  const labels = new Set();
-  dashProducts.forEach((p) => (p.waves || []).forEach((w) => labels.add(w.label)));
+  const produkId = document.getElementById("filter-produk-dash") ? document.getElementById("filter-produk-dash").value : "";
   gelSelect.innerHTML = '<option value="">Semua Gelombang</option>';
-  labels.forEach((label) => {
-    const opt = document.createElement("option");
-    opt.value = label;
-    opt.textContent = label;
-    gelSelect.appendChild(opt);
-  });
-  if (labels.has(currentValue)) gelSelect.value = currentValue;
+  const produk = dashProductsMap[produkId];
+  if (produk) {
+    (produk.waves || []).forEach((w) => {
+      const opt = document.createElement("option");
+      opt.value = w.label;
+      opt.textContent = w.label;
+      gelSelect.appendChild(opt);
+    });
+  } else {
+    const labels = new Set();
+    dashProducts.forEach((p) => (p.waves || []).forEach((w) => labels.add(w.label)));
+    labels.forEach((label) => {
+      const opt = document.createElement("option");
+      opt.value = label;
+      opt.textContent = label;
+      gelSelect.appendChild(opt);
+    });
+  }
+  if ([...gelSelect.options].some((o) => o.value === currentValue)) gelSelect.value = currentValue;
 }
 
 function updateCabangFilterOptionsDash(profile) {
@@ -185,6 +213,7 @@ async function loadDashboardData(profile) {
       }
     }
 
+    updateProdukFilterOptionsDash();
     updateGelombangFilterOptionsDash();
     updateCabangFilterOptionsDash(profile);
     renderDashboard();
@@ -223,6 +252,10 @@ window.onAuthReady = async function (profile) {
   });
   document.getElementById("filter-dari").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-sampai").addEventListener("change", reloadDashboardForDateChange);
+  document.getElementById("filter-produk-dash").addEventListener("change", () => {
+    updateGelombangFilterOptionsDash();
+    renderDashboard();
+  });
   document.getElementById("filter-gelombang-dash").addEventListener("change", renderDashboard);
   document.getElementById("filter-cabang-dash").addEventListener("change", reloadDashboardForDateChange);
   document.getElementById("filter-alamat-dash").addEventListener("input", debounceDashRender);
@@ -266,10 +299,12 @@ function getDateRange() {
 // Cek cabangFilter di bawah jadi cuma jaring pengaman (harusnya sudah cocok
 // semua, karena query-nya sendiri sudah dibatasi) -- tidak menambah baca data.
 function filteredDashOrders() {
+  const produkId = document.getElementById("filter-produk-dash") ? document.getElementById("filter-produk-dash").value : "";
   const gelombang = document.getElementById("filter-gelombang-dash").value;
   const cabangFilter = document.getElementById("filter-cabang-dash").value;
   const alamat = document.getElementById("filter-alamat-dash").value.trim().toLowerCase();
   return dashOrders.filter((o) => {
+    if (produkId && !(o.items || []).some((it) => it.product_id === produkId)) return false;
     if (gelombang && !(o.items || []).some((it) => resolveWaveLabelDash(it) === gelombang)) return false;
     if (cabangFilter && o.cabang_id !== cabangFilter) return false;
     if (alamat && !(o.alamat || "").toLowerCase().includes(alamat)) return false;
