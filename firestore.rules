@@ -351,11 +351,37 @@ service cloud.firestore {
         // Owner & Admin Kasir boleh menulis balik riwayat pembayaran LAMA
         // dengan created_by asli (bukan cuma dirinya sendiri) supaya fitur
         // Restore di halaman Arsip PO bisa memulihkan data persis semula.
+        //
+        // PERBAIKAN: `!exists(orders/{orderId})` ditambahkan di baris cabang
+        // di bawah. Sebabnya: saat pesanan BARU dibuat SEKALIGUS DENGAN
+        // pembayaran awalnya (uang muka > 0 langsung saat Input Pesanan),
+        // keduanya ditulis DALAM 1 TRANSAKSI yang sama -- tapi Security
+        // Rules TIDAK BISA melihat dokumen pesanan yang baru saja ditulis di
+        // transaksi yang sama itu lewat get(), jadi dari sudut pandang rule
+        // ini pesanan induknya "belum ada" sama sekali. Untuk Owner/Admin
+        // Kasir tidak masalah (canAccessAllBranches() lolos duluan lewat
+        // "||", baris get() di bawah tidak pernah dievaluasi) -- TAPI untuk
+        // Karyawan cabang, get() ini gagal/menganggap dokumennya tidak ada,
+        // sehingga PENULISAN PEMBAYARAN PERTAMA DITOLAK -- Karyawan jadi
+        // "terpaksa" simpan pesanan dengan bayar Rp0 dulu, baru catat
+        // pembayaran terpisah belakangan (yang BERHASIL karena saat itu
+        // pesanannya sudah benar-benar ada/ter-commit, get()-nya sukses).
+        // Kalau pesanan induknya BELUM ADA (skenario "dibuat bersamaan"
+        // persis di atas), cabang KARYAWAN sudah pasti benar dengan
+        // sendirinya -- itu sudah dijamin oleh rule "create" PESANAN di atas
+        // (match /orders/{orderId}) yang MEWAJIBKAN sameCabang() untuk
+        // Karyawan sebelum pesanannya sendiri boleh tersimpan, dalam
+        // transaksi yang persis sama. Jadi aman dilewati di sini KHUSUS
+        // untuk kasus itu -- kalau pesanan induknya SUDAH ADA (skenario
+        // normal: Catat Pembayaran belakangan lewat Detail Pesanan untuk
+        // pesanan yang sudah lama tersimpan), pengecekan cabang tetap
+        // berjalan seperti biasa lewat get() yang sekarang berhasil.
         allow create: if isSignedIn() && isActiveUser()
           && request.resource.data.jumlah is number
           && request.resource.data.jumlah > 0
           && (request.resource.data.created_by == request.auth.uid || canAccessAllBranches())
           && (canAccessAllBranches()
+              || !exists(/databases/$(database)/documents/orders/$(orderId))
               || sameCabang(get(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
         allow update, delete: if isOwner();
       }

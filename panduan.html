@@ -102,12 +102,33 @@
       </div>
       <div id="panduan-search-count"></div>
 
-      <div class="panduan-quicknav">
+      <div class="panduan-quicknav" id="panduan-quicknav">
         <a href="#sec-input"><i class="ph-bold ph-plus-circle"></i> Input Pesanan</a>
         <a href="#sec-daftar"><i class="ph-bold ph-clipboard-text"></i> Daftar Pesanan</a>
         <a href="#sec-laporan"><i class="ph-bold ph-file-arrow-down"></i> Laporan &amp; Export</a>
         <a href="#sec-install"><i class="ph-bold ph-download-simple"></i> Install di Komputer</a>
       </div>
+      <script>
+        // PENINGKATAN UI/UX: klik tautan pintasan di atas sebelumnya cuma
+        // SCROLL ke bagiannya (elemen <details> yang dituju tetap
+        // tertutup, harus klik segitiga dropdown-nya lagi secara terpisah
+        // untuk benar-benar membukanya). Sekarang klik langsung membuka
+        // <details> yang dituju SEKALIGUS scroll ke situ -- 1 klik, bukan 2.
+        document.getElementById("panduan-quicknav").addEventListener("click", (e) => {
+          const link = e.target.closest("a[href^='#']");
+          if (!link) return;
+          const target = document.querySelector(link.getAttribute("href"));
+          if (target && target.tagName === "DETAILS") {
+            target.open = true;
+            // Beri waktu 1 frame supaya browser sempat menghitung ulang
+            // tinggi <details> yang baru dibuka SEBELUM scroll dijalankan --
+            // kalau scroll duluan, posisinya bisa meleset (dihitung
+            // berdasarkan tinggi lama saat masih tertutup).
+            requestAnimationFrame(() => target.scrollIntoView({ behavior: "smooth", block: "start" }));
+            e.preventDefault();
+          }
+        });
+      </script>
 
       <!-- ============ 1. INPUT PESANAN ============ -->
       <details class="panduan-section card" id="sec-input" open>

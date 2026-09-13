@@ -445,15 +445,28 @@ function negateQtyMap(map) {
 // semuanya batal, tidak ada data yang jadi "yatim" separuh terhapus).
 // Dipakai bersama oleh Daftar Pesanan (hapus 1 per 1 / massal) dan halaman
 // Arsip PO (hapus banyak sekaligus setelah dibackup).
+//
+// PERBAIKAN: sebelumnya paymentsSnap dibaca lewat tx.get() ke SELURUH
+// subcollection "payments" sekaligus (sebuah query/CollectionReference) DI
+// DALAM transaksi. Ternyata Firestore SDK untuk BROWSER/client (beda dari
+// Admin SDK di server) tidak mendukung tx.get() dengan Query/CollectionReference
+// -- cuma DocumentReference tunggal yang didukung. Akibatnya baris itu SELALU
+// gagal dengan error tipe SDK ("Expected type ... custom object lain") --
+// bukan sesekali, tiap kali hapus pesanan lewat Detail Pesanan pasti gagal.
+// Sekarang: daftar dokumen payments dibaca DI LUAR transaksi lebih dulu
+// (query biasa, bukan tx.get()) untuk tahu ID-ID-nya, baru masing-masing
+// referensinya dihapus DI DALAM transaksi bersama pesanan induknya.
+// Konsekuensi: kalau ada pembayaran baru masuk PERSIS di jendela waktu
+// sangat sempit (hitungan milidetik) antara baca daftar ini dan transaksi
+// selesai, pembayaran itu berisiko jadi "yatim" (payment ada tapi order
+// induknya sudah terhapus) -- risiko sangat kecil, cuma memengaruhi 1
+// dokumen kecil, dan ini batasan bawaan SDK Web Firestore itu sendiri
+// (tidak bisa dihindari sepenuhnya dari sisi klien tanpa Cloud Function).
 async function deleteOrderCascade(id) {
   const orderRef = db.collection("orders").doc(id);
+  const paymentsSnap = await orderRef.collection("payments").get();
   await db.runTransaction(async (tx) => {
-    // paymentsSnap dibaca DI DALAM transaksi (bukan sebelumnya) supaya kalau
-    // ada pembayaran baru masuk PERSIS di tengah proses ini, Firestore
-    // otomatis mengulang transaksinya dari awal -- tidak ada celah race yang
-    // bikin dokumen payments jadi yatim (order induknya sudah terhapus tapi
-    // payment-nya belum ikut terhapus).
-    const [orderDoc, paymentsSnap] = await Promise.all([tx.get(orderRef), tx.get(orderRef.collection("payments"))]);
+    const orderDoc = await tx.get(orderRef);
     if (!orderDoc.exists) return; // sudah terhapus lebih dulu (mis. tab lain)
     const order = orderDoc.data();
 

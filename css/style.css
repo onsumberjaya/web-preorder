@@ -598,7 +598,20 @@ table tbody tr:hover { background: var(--gray-50); }
 .order-item-line .item-qty { font-weight: 700; color: var(--gray-800); }
 .order-item-line .item-qty-spacer { font-size: 11px; margin-top: 1px; visibility: hidden; }
 
-.spinner { display: inline-block; width: 18px; height: 18px; border: 3px solid var(--gray-200); border-top-color: var(--brand-600); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.spinner {
+  position: relative; display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+  background: transparent; /* elemen intinya sendiri disembunyikan -- yang kelihatan cuma 8 titik dari box-shadow di bawah, tanpa titik di tengah */
+  box-shadow:
+    0 -10px 0 0 #16a34a,
+    7.1px -7.1px 0 0 rgba(22,163,74,0.85),
+    10px 0 0 0 rgba(22,163,74,0.7),
+    7.1px 7.1px 0 0 rgba(22,163,74,0.55),
+    0 10px 0 0 rgba(22,163,74,0.4),
+    -7.1px 7.1px 0 0 rgba(22,163,74,0.25),
+    -10px 0 0 0 rgba(22,163,74,0.15),
+    -7.1px -7.1px 0 0 rgba(22,163,74,0.08);
+  animation: spin 1s linear infinite;
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes skeletonShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 
