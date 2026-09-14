@@ -400,11 +400,18 @@ function updateGelombangFilterOptions() {
 // bukan cuma supaya rapi, tapi karena Firestore rules menolak query yang
 // berpotensi mengembalikan dokumen di luar izin baca user (lihat komentar
 // di firestore.rules). Owner/Admin Kasir tetap lihat semua cabang seperti biasa.
-// Catatan: sengaja pakai .get() (baca sekali), BUKAN onSnapshot (real-time).
-// Data pesanan di sini bisa banyak & terus bertambah, jadi listener real-time
-// yang menyala terus-menerus di halaman ini cukup boros bacaan Firestore.
-// Kalau ada pembayaran/perubahan baru dari perangkat lain, klik "Muat Ulang"
-// atau ubah filter tanggal untuk menyegarkan datanya.
+//
+// PERBAIKAN: sebelumnya pakai .get() (baca sekali) dengan alasan real-time
+// dianggap "boros baca Firestore" -- ternyata sebaliknya. .get() menarik
+// ULANG SEMUA dokumen dari nol tiap dipanggil (tiap ganti filter, tiap klik
+// Muat Ulang), sedangkan onSnapshot() cuma dihitung sebagai pembacaan baru
+// untuk dokumen yang BENAR-BENAR berubah setelah pemuatan awal -- kalau
+// halaman dibiarkan terbuka lama tanpa ada perubahan data sama sekali,
+// TIDAK ADA biaya baca tambahan sama sekali. Sekaligus data otomatis segar
+// tanpa perlu refresh manual/berkala, tanpa risiko mengganggu form yang
+// sedang diisi di halaman lain (listener ini cuma memengaruhi tampilan
+// tabel di halaman ini, tidak memuat ulang seluruh halaman).
+let ordersUnsubscribe = null; // fungsi buat melepas listener yang sedang aktif
 async function loadOrders() {
   const profile = currentProfile;
   if (!profile) return;
@@ -414,21 +421,33 @@ async function loadOrders() {
   const container = document.getElementById("order-list");
   container.innerHTML = skeletonRows(8);
 
-  try {
-    let query = db.collection("orders");
-    if (!canAccessAllBranches(profile) && profile.cabang_id) {
-      query = query.where("cabang_id", "==", profile.cabang_id);
-    }
-    if (dari) query = query.where("tanggal", ">=", new Date(dari + "T00:00:00"));
-    if (sampai) query = query.where("tanggal", "<=", new Date(sampai + "T23:59:59"));
-    query = query.orderBy("tanggal", "desc");
-
-    const snap = await query.get();
-    allOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderOrders();
-  } catch (err) {
-    container.innerHTML = `<div class="alert alert-error">${friendlyFirebaseError(err)}</div>`;
+  // Lepas listener SEBELUMNYA (kalau ada) dulu sebelum memasang yang baru --
+  // dipanggil lagi tiap filter tanggal/cabang berubah atau klik "Muat
+  // Ulang". Tanpa ini, listener lama akan tetap menyala menumpuk di
+  // belakang layar tiap ganti filter, boros & berisiko renderOrders()
+  // terpanggil dobel dengan query yang sudah tidak relevan lagi.
+  if (ordersUnsubscribe) {
+    ordersUnsubscribe();
+    ordersUnsubscribe = null;
   }
+
+  let query = db.collection("orders");
+  if (!canAccessAllBranches(profile) && profile.cabang_id) {
+    query = query.where("cabang_id", "==", profile.cabang_id);
+  }
+  if (dari) query = query.where("tanggal", ">=", new Date(dari + "T00:00:00"));
+  if (sampai) query = query.where("tanggal", "<=", new Date(sampai + "T23:59:59"));
+  query = query.orderBy("tanggal", "desc");
+
+  ordersUnsubscribe = query.onSnapshot(
+    (snap) => {
+      allOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderOrders();
+    },
+    (err) => {
+      container.innerHTML = `<div class="alert alert-error">${friendlyFirebaseError(err)}</div>`;
+    }
+  );
 }
 
 function refreshOrders() {

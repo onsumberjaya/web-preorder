@@ -599,17 +599,17 @@ table tbody tr:hover { background: var(--gray-50); }
 .order-item-line .item-qty-spacer { font-size: 11px; margin-top: 1px; visibility: hidden; }
 
 .spinner {
-  position: relative; display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+  position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: transparent; /* elemen intinya sendiri disembunyikan -- yang kelihatan cuma 8 titik dari box-shadow di bawah, tanpa titik di tengah */
   box-shadow:
-    0 -10px 0 0 #16a34a,
-    7.1px -7.1px 0 0 rgba(22,163,74,0.85),
-    10px 0 0 0 rgba(22,163,74,0.7),
-    7.1px 7.1px 0 0 rgba(22,163,74,0.55),
-    0 10px 0 0 rgba(22,163,74,0.4),
-    -7.1px 7.1px 0 0 rgba(22,163,74,0.25),
-    -10px 0 0 0 rgba(22,163,74,0.15),
-    -7.1px -7.1px 0 0 rgba(22,163,74,0.08);
+    0 -20px 0 0 #16a34a,
+    14.1px -14.1px 0 0 rgba(22,163,74,0.85),
+    20px 0 0 0 rgba(22,163,74,0.7),
+    14.1px 14.1px 0 0 rgba(22,163,74,0.55),
+    0 20px 0 0 rgba(22,163,74,0.4),
+    -14.1px 14.1px 0 0 rgba(22,163,74,0.25),
+    -20px 0 0 0 rgba(22,163,74,0.15),
+    -14.1px -14.1px 0 0 rgba(22,163,74,0.08);
   animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -651,7 +651,13 @@ table tbody tr:hover { background: var(--gray-50); }
    sama sekali yang men-toggle modal-modal di seluruh aplikasi. */
 @keyframes modalBackdropIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalBoxIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-.loading-center { display: flex; justify-content: center; align-items: center; padding: 60px 0; }
+/* PERBAIKAN: sebelumnya cuma padding 60px atas-bawah (tidak benar-benar di
+   tengah layar, posisinya ikut dokumen seadanya). Sekarang pakai min-height
+   supaya spinner-nya betul-betul tampil di tengah area layar yang terlihat
+   -- aman dipakai di sini karena loading-center sekarang cuma muncul sebagai
+   tampilan sementara halaman PENUH sebelum konten asli/skeleton muncul,
+   bukan lagi di dalam modal kecil manapun. */
+.loading-center { display: flex; justify-content: center; align-items: center; min-height: 55vh; padding: 40px 0; }
 
 /* PENINGKATAN UI/UX (Tahap 3): progress bar untuk proses panjang berulang
    (mis. hapus/restore banyak pesanan sekaligus) -- sebelumnya cuma spinner
