@@ -70,7 +70,22 @@ async function applyLkFilter() {
     if (sampaiDate) paymentsQuery = paymentsQuery.where("tanggal", "<=", sampaiDate);
     paymentsQuery = paymentsQuery.orderBy("tanggal", "asc");
 
-    const [orderSnap, expenseSnap, paymentSnap] = await Promise.all([ordersQuery.get(), expenseQuery.get(), paymentsQuery.get()]);
+    let orderSnap, expenseSnap, paymentSnap;
+    try {
+      orderSnap = await ordersQuery.get();
+    } catch (err) {
+      throw new Error("Gagal memuat data Pesanan (orders): " + friendlyFirebaseError(err));
+    }
+    try {
+      expenseSnap = await expenseQuery.get();
+    } catch (err) {
+      throw new Error("Gagal memuat data Pengeluaran: " + friendlyFirebaseError(err));
+    }
+    try {
+      paymentSnap = await paymentsQuery.get();
+    } catch (err) {
+      throw new Error("Gagal memuat riwayat Pembayaran (untuk Buku Kas): " + friendlyFirebaseError(err));
+    }
     lkOrders = orderSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     lkExpenses = expenseSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     lkPayments = paymentSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
