@@ -316,6 +316,22 @@ service cloud.firestore {
     // pembeli; Admin Kasir & Karyawan hanya boleh catat pembayaran & tandai
     // diambil (di cabang yang mereka boleh akses). Hapus pesanan dibatasi
     // khusus Owner.
+    // Khusus untuk collectionGroup("payments") -- dipakai Buku Kas di halaman
+    // Laporan Keuangan untuk baca riwayat pembayaran dari SEMUA pesanan
+    // sekaligus (lintas cabang), BUKAN payments 1 pesanan tertentu. Aturan
+    // "match /orders/{orderId}/payments/{paymentId}" di bawah (di dalam
+    // match /orders/{orderId}) TIDAK berlaku untuk query collectionGroup --
+    // Firestore mewajibkan format wildcard rekursif {path=**} terpisah
+    // khusus untuk itu, walau path dokumennya sama persis. Dibatasi Owner &
+    // Admin Kasir saja (canAccessAllBranches()) -- TIDAK dibuka untuk
+    // Karyawan cabang karena halaman Laporan Keuangan sendiri sudah
+    // dibatasi Owner+Admin Kasir saja (data-allowed-roles di
+    // laporan-keuangan.html) dan tidak ada bagian lain aplikasi yang
+    // memakai collectionGroup("payments").
+    match /{path=**}/payments/{paymentId} {
+      allow read: if isSignedIn() && isActiveUser() && canAccessAllBranches();
+    }
+
     match /orders/{orderId} {
       // Pakai .get('cabang_id', null) (bukan akses langsung) supaya pesanan
       // lama dari sebelum fitur cabang ada (belum punya cabang_id) tidak bikin
