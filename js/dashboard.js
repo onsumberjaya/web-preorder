@@ -140,10 +140,13 @@ function updateCabangFilterOptionsDash(profile) {
 
 let dashProfile = null;
 
-// Sengaja pakai .get() (baca sekali), BUKAN onSnapshot (real-time). Dashboard
-// ini menampilkan ringkasan, bukan angka yang harus update detik-itu-juga --
-// listener real-time yang menyala terus di halaman ini boros bacaan
-// Firestore. Klik "Muat Ulang" kapan pun perlu angka terbaru.
+// PERBAIKAN: sebelumnya pakai .get() (baca sekali) dengan alasan real-time
+// dianggap boros -- ternyata sebaliknya, onSnapshot() cuma dihitung sebagai
+// pembacaan baru untuk dokumen yang BENAR-BENAR berubah setelah pemuatan
+// awal (bukan menarik ulang semua dari nol tiap kali seperti .get()). Yang
+// dibikin real-time cuma query pesanan-nya saja (bagian yang paling sering
+// berubah) -- daftar produk & cabang tetap dibaca sekali seperti biasa
+// karena jarang berubah, tidak perlu selalu "hidup".
 //
 // Rentang tanggal (dari filter "Hari Ini"/"7 Hari Terakhir"/"Bulan Ini"/
 // "Rentang Tanggal...") DIBATASI LANGSUNG DI QUERY FIRESTORE lewat
@@ -154,9 +157,20 @@ let dashProfile = null;
 // data hari ini/minggu ini/bulan ini. Pilihan "Semua Waktu" tetap tersedia
 // dan memang sengaja baca semua -- itu pilihan eksplisit pengguna, sama
 // seperti tombol "Cek Nomor Nota Bentrok (Riwayat Penuh)" di Laporan.
+let dashOrdersUnsubscribe = null; // fungsi buat melepas listener pesanan yang sedang aktif
 async function loadDashboardData(profile) {
   const container = document.getElementById("dashboard-content");
   container.innerHTML = skeletonCards(5);
+
+  // Lepas listener SEBELUMNYA (kalau ada) dulu sebelum memasang yang baru --
+  // dipanggil lagi tiap ganti periode/rentang tanggal/filter cabang, atau
+  // klik "Muat Ulang". Tanpa ini, listener lama menumpuk menyala di belakang
+  // layar tiap ganti filter.
+  if (dashOrdersUnsubscribe) {
+    dashOrdersUnsubscribe();
+    dashOrdersUnsubscribe = null;
+  }
+
   try {
     const { from, to } = getDateRange();
 
@@ -182,12 +196,10 @@ async function loadDashboardData(profile) {
     if (from) ordersQuery = ordersQuery.where("tanggal", ">=", from);
     if (to) ordersQuery = ordersQuery.where("tanggal", "<=", to);
 
-    const [orderSnap, prodSnap, cabangSnap] = await Promise.all([
-      ordersQuery.get(),
+    const [prodSnap, cabangSnap] = await Promise.all([
       db.collection("products").orderBy("nama").get(),
       db.collection("cabang").orderBy("nama").get(),
     ]);
-    dashOrders = orderSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     dashProducts = prodSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     dashProductsMap = {};
     dashProducts.forEach((p) => (dashProductsMap[p.id] = p));
@@ -216,7 +228,16 @@ async function loadDashboardData(profile) {
     updateProdukFilterOptionsDash();
     updateGelombangFilterOptionsDash();
     updateCabangFilterOptionsDash(profile);
-    renderDashboard();
+
+    dashOrdersUnsubscribe = ordersQuery.onSnapshot(
+      (orderSnap) => {
+        dashOrders = orderSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        renderDashboard();
+      },
+      (err) => {
+        container.innerHTML = `<div class="alert alert-error">${friendlyFirebaseError(err)}</div>`;
+      }
+    );
   } catch (err) {
     container.innerHTML = `<div class="alert alert-error">${friendlyFirebaseError(err)}</div>`;
   }
