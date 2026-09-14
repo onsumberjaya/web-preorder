@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pengeluaran - Benih Preorder</title>
+<link rel="stylesheet" href="css/style.css" />
+<script>(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#16a34a" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Benih Preorder" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://www.gstatic.com" />
+<link rel="preconnect" href="https://unpkg.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2" defer></script>
+<script src="js/pwa-register.js?v=10" defer></script>
+</head>
+<body data-allowed-roles="owner,admin_kasir">
+  <div id="mobile-topbar"></div>
+  <div id="mobile-bottom-nav"></div>
+  <div id="sidebar-overlay"></div>
+  <div class="app-shell">
+    <nav id="sidebar"></nav>
+    <main class="content">
+      <div class="page-header-row">
+        <h1 class="page-title" style="margin:0;">Pengeluaran</h1>
+        <div class="page-header-actions">
+          <button class="btn-secondary btn-sm" onclick="openKategoriModal()"><i class="ph-bold ph-tag"></i> Kelola Kategori</button>
+          <button class="btn-primary btn-sm" onclick="openPengeluaranModal()">+ Catat Pengeluaran</button>
+        </div>
+      </div>
+      <p class="page-subtitle">Catat pengeluaran (beli benih, ongkir, operasional, dll). Data ini jadi dasar Buku Kas &amp; Laba Rugi di halaman Laporan Keuangan.</p>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="grid grid-3">
+          <div class="field">
+            <label>Dari Tanggal</label>
+            <input type="date" id="peng-dari" />
+          </div>
+          <div class="field">
+            <label>Sampai Tanggal</label>
+            <input type="date" id="peng-sampai" />
+          </div>
+          <div class="field">
+            <label>Kategori</label>
+            <select id="peng-filter-kategori"><option value="">Semua Kategori</option></select>
+          </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:6px;">
+          <button class="btn-secondary" onclick="applyPengeluaranFilter()">Terapkan Filter</button>
+        </div>
+      </div>
+
+      <div id="pengeluaran-summary" style="margin-bottom:16px;"></div>
+      <div id="pengeluaran-table"><div class="loading-center"><div class="spinner"></div></div></div>
+    </main>
+  </div>
+
+  <!-- Modal tambah/edit pengeluaran -->
+  <div class="modal-backdrop" id="pengeluaran-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 id="pengeluaran-modal-title" style="margin-top:0;">Catat Pengeluaran</h3>
+      <form id="pengeluaran-form">
+        <input type="hidden" id="peng-id" />
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Tanggal *</label>
+            <input type="date" id="peng-tanggal" required />
+          </div>
+          <div class="field">
+            <label>Kategori *</label>
+            <select id="peng-kategori" required></select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Keterangan *</label>
+          <input type="text" id="peng-keterangan" placeholder="Contoh: Beli bibit cabai ke Toko Tani Jaya" required />
+        </div>
+        <div class="field">
+          <label>Jumlah (Rp) *</label>
+          <input type="text" inputmode="numeric" id="peng-jumlah" required oninput="formatNumberInputLive(this)" />
+        </div>
+        <div style="display:flex; gap:10px; margin-top:18px;">
+          <button type="submit" class="btn-primary" style="flex:1; justify-content:center;">Simpan</button>
+          <button type="button" class="btn-secondary" onclick="closePengeluaranModal()">Batal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal kelola kategori -->
+  <div class="modal-backdrop" id="kategori-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">Kelola Kategori Pengeluaran</h3>
+      <div id="kategori-list" style="margin-bottom:14px;"></div>
+      <form id="kategori-form" style="display:flex; gap:8px;">
+        <input type="text" id="kategori-baru" placeholder="Nama kategori baru..." style="flex:1;" required />
+        <button type="submit" class="btn-primary btn-sm">Tambah</button>
+      </form>
+      <div style="display:flex; margin-top:18px;">
+        <button type="button" class="btn-secondary" style="flex:1; justify-content:center;" onclick="closeKategoriModal()">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="js/firebase-config.js?v=10" defer></script>
+  <script src="js/utils.js?v=10" defer></script>
+  <script src="js/nav.js?v=10" defer></script>
+  <script src="js/auth-guard.js?v=10" defer></script>
+  <script src="js/presence.js?v=10" defer></script>
+  <script src="js/pengeluaran.js?v=10" defer></script>
+</body>
+</html>

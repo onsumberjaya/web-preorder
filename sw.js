@@ -29,7 +29,7 @@
 // PERNAH membuka halaman itu sekali pun secara online (baru akan ikut
 // ke-cache begitu berhasil diambil dari jaringan) -- bukan "selalu gagal"
 // tapi tetap lebih baik langsung tersedia dari awal.
-const CACHE_VERSION = "v3"; // v3: + tentang.html, changelog.html
+const CACHE_VERSION = "v4"; // v4: + pengeluaran.html, laporan-keuangan.html (Fitur Laporan Keuangan)
 const CACHE_NAME = `benih-preorder-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_FILES = [
@@ -41,6 +41,8 @@ const APP_SHELL_FILES = [
   "cabang.html",
   "pengguna.html",
   "laporan.html",
+  "pengeluaran.html",
+  "laporan-keuangan.html",
   "nota.html",
   "toko.html",
   "arsip.html",
@@ -61,6 +63,8 @@ const APP_SHELL_FILES = [
   "js/cabang.js",
   "js/pengguna.js",
   "js/laporan.js",
+  "js/pengeluaran.js",
+  "js/laporan-keuangan.js",
   "js/nota.js",
   "js/toko.js",
   "js/arsip.js",

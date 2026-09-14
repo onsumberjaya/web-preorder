@@ -922,13 +922,19 @@ function updateBulkToolbar() {
 // diambil TANPA perlu buka Detail atau masuk mode pilih massal dulu --
 // alternatif yang lebih aman dari "swipe" (tabel ini sudah bisa di-scroll
 // horizontal di layar sempit, swipe akan bentrok dengan gestur scroll itu).
-// Optimistic UI sama seperti bulkAction() di atas -- tampilan langsung
-// berubah, ditulis ke Firestore di belakang layar, di-rollback kalau gagal.
+// Sekarang minta konfirmasi dulu (showConfirmModal) sebelum menyimpan --
+// supaya jari yang salah pencet di tabel padat tidak langsung mengubah
+// status pengambilan tanpa sengaja. Optimistic UI baru jalan SETELAH
+// dikonfirmasi -- tampilan langsung berubah, ditulis ke Firestore di
+// belakang layar, di-rollback kalau gagal.
 async function toggleSingleDiambil(id) {
   const o = allOrders.find((x) => x.id === id);
   if (!o) return;
-  const oldValue = { is_diambil: o.is_diambil, tanggal_ambil: o.tanggal_ambil };
   const newValue = !o.is_diambil;
+  const label = newValue ? "Sudah Diambil" : "Belum Diambil";
+  if (!(await showConfirmModal(`Tandai pesanan ${escapeHtml(o.nama_pembeli)} sebagai "${label}"?`))) return;
+
+  const oldValue = { is_diambil: o.is_diambil, tanggal_ambil: o.tanggal_ambil };
   o.is_diambil = newValue;
   o.tanggal_ambil = newValue ? new Date() : null;
   renderOrders();

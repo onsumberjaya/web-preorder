@@ -211,6 +211,7 @@ window.onAuthReady = async function (profile) {
           product_name: it.product_name,
           wave_label: it.wave_label,
           harga_satuan: it.harga_satuan,
+          harga_modal: it.harga_modal,
         };
       });
     } catch (err) {
@@ -325,16 +326,16 @@ function resolveLineInfo(line) {
   const prod = getProduct(line.product_id);
   const wave = getWave(prod, line.wave_id);
   if (wave) {
-    return { productName: prod.nama, waveLabel: wave.label, hargaSatuan: wave.harga, isGhost: false };
+    return { productName: prod.nama, waveLabel: wave.label, hargaSatuan: wave.harga, hargaModal: wave.harga_modal || 0, isGhost: false };
   }
   const fallback = originalItemLookup[originalItemKey(line.product_id, line.wave_id)];
   if (fallback) {
-    return { productName: fallback.product_name, waveLabel: fallback.wave_label, hargaSatuan: fallback.harga_satuan, isGhost: true };
+    return { productName: fallback.product_name, waveLabel: fallback.wave_label, hargaSatuan: fallback.harga_satuan, hargaModal: fallback.harga_modal || 0, isGhost: true };
   }
   // Betul-betul tidak ada info sama sekali (kasus sangat jarang, mis. baris
   // baru yang produknya keburu dihapus admin lain sebelum sempat disimpan)
   // -- anggap harga 0 supaya tidak crash, bukan berarti aman/wajar.
-  return { productName: prod ? prod.nama : "(Produk sudah dihapus)", waveLabel: "(Gelombang sudah dihapus)", hargaSatuan: 0, isGhost: true };
+  return { productName: prod ? prod.nama : "(Produk sudah dihapus)", waveLabel: "(Gelombang sudah dihapus)", hargaSatuan: 0, hargaModal: 0, isGhost: true };
 }
 
 function lineSubtotal(line) {
@@ -892,6 +893,7 @@ async function handleSubmit(e) {
       wave_id: l.wave_id,
       wave_label: info.waveLabel,
       harga_satuan: info.hargaSatuan,
+      harga_modal: info.hargaModal,
       jumlah,
       subtotal: info.hargaSatuan * jumlah,
     };

@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { href: "pesanan.html", icon: "ph-clipboard-text", label: "Daftar Pesanan", ownerOnly: false },
   { href: "produk.html", icon: "ph-plant", label: "Produk & Batch", ownerOnly: false, roles: ["owner", "admin_kasir"] },
   { href: "laporan.html", icon: "ph-file-arrow-down", label: "Laporan & Export", ownerOnly: false },
+  { href: "pengeluaran.html", icon: "ph-wallet", label: "Pengeluaran", ownerOnly: false, roles: ["owner", "admin_kasir"] },
+  { href: "laporan-keuangan.html", icon: "ph-chart-pie-slice", label: "Laporan Keuangan", ownerOnly: false, roles: ["owner", "admin_kasir"] },
   { href: "arsip.html", icon: "ph-archive", label: "Arsip PO", ownerOnly: false, roles: ["owner", "admin_kasir"] },
   { href: "panduan.html", icon: "ph-book-open-text", label: "Panduan", ownerOnly: false },
   { href: "tentang.html", icon: "ph-info", label: "Tentang", ownerOnly: false },

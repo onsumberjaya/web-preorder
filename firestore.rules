@@ -183,6 +183,38 @@ service cloud.firestore {
       allow delete: if isOwner() || isAdminKasir();
     }
 
+    // Pengeluaran (Fitur Laporan Keuangan -- Buku Kas & Laba Rugi): semua
+    // yang login DAN masih aktif boleh baca, hanya Owner & Admin Kasir boleh
+    // catat/ubah/hapus (SAMA seperti Produk di atas -- keputusan Owner:
+    // pengeluaran dicatat terpusat, bukan per-cabang, jadi TIDAK ada
+    // pembatasan cabang_id seperti di /orders).
+    match /pengeluaran/{pengeluaranId} {
+      allow read: if isSignedIn() && isActiveUser();
+      allow create: if (isOwner() || isAdminKasir())
+        && request.resource.data.kategori is string && request.resource.data.kategori.size() > 0
+        && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
+        && request.resource.data.created_by == request.auth.uid;
+      allow update: if (isOwner() || isAdminKasir())
+        && request.resource.data.kategori is string && request.resource.data.kategori.size() > 0
+        && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
+        // created_by/created_at (siapa & kapan pertama kali dicatat) terkunci permanen, tidak boleh diganti saat edit.
+        && request.resource.data.get('created_by', null) == resource.data.get('created_by', null)
+        && request.resource.data.get('created_at', null) == resource.data.get('created_at', null);
+      allow delete: if isOwner() || isAdminKasir();
+    }
+
+    // Daftar kategori pengeluaran (dropdown pilihan di halaman Pengeluaran)
+    // -- cuma berisi nama kategori, boleh dibaca semua user aktif, dikelola
+    // Owner & Admin Kasir. Menghapus kategori di sini TIDAK menghapus/mengubah
+    // catatan pengeluaran lama yang sudah memakai nama kategori itu (lihat
+    // catatan di js/pengeluaran.js -- kategori disimpan sebagai teks biasa
+    // di dokumen /pengeluaran, bukan referensi id ke sini).
+    match /kategori_pengeluaran/{kategoriId} {
+      allow read: if isSignedIn() && isActiveUser();
+      allow write: if (isOwner() || isAdminKasir())
+        && request.resource.data.nama is string && request.resource.data.nama.size() > 0;
+    }
+
     // Daftar cabang: semua yang login DAN masih aktif boleh baca (dipakai
     // buat dropdown pilih cabang di Input Pesanan/filter), hanya Owner yang
     // boleh kelola (tambah/ubah/nonaktifkan cabang) lewat halaman "Kelola

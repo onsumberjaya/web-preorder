@@ -670,6 +670,73 @@ function exportPdf() {
 // awal dan menulis ulang total yang benar -- aman dijalankan berkali-kali
 // kapan saja (bukan menambah, tapi mengganti total dengan hitungan yang
 // baru dihitung ulang dari nol).
+async function rebuildHppPesananLama() {
+  const profile = lapProfile;
+  if (!profile || profile.role !== "owner") return;
+
+  const lanjut = await showConfirmModal(
+    "Ini akan membaca ULANG seluruh riwayat pesanan dan mengisi/menimpa Harga Modal (HPP) tiap item pesanan dengan Harga Modal produk yang berlaku SAAT INI di halaman Produk (dicocokkan lewat Produk + Gelombang yang dipakai pesanan itu). Item yang produk/gelombangnya sudah dihapus dari katalog akan DILEWATI (HPP-nya tidak diubah). TIDAK mengubah Harga Jual/Total/Status Bayar pesanan sama sekali -- cuma field harga_modal (dipakai Laporan Keuangan → Laba Rugi). Aman dijalankan berkali-kali kapan saja. Lanjutkan?",
+    { okLabel: "Ya, Hitung Ulang HPP" }
+  );
+  if (!lanjut) return;
+
+  showToast("Menghitung ulang HPP dari seluruh riwayat pesanan...", "success");
+  try {
+    // Peta harga_modal produk yang berlaku SAAT INI, kunci "productId::waveId".
+    const hargaModalMap = {};
+    Object.values(lapProductsMap).forEach((p) => {
+      (p.waves || []).forEach((w) => {
+        hargaModalMap[`${p.id}::${w.id}`] = Number(w.harga_modal) || 0;
+      });
+    });
+
+    const snap = await db.collection("orders").get();
+    let batch = db.batch();
+    let opsInBatch = 0;
+    let totalPesananDiubah = 0;
+
+    for (const doc of snap.docs) {
+      const order = doc.data();
+      let berubah = false;
+      const newItems = (order.items || []).map((it) => {
+        if (!it.product_id || !it.wave_id) return it;
+        const key = `${it.product_id}::${it.wave_id}`;
+        // Produk/gelombang sudah dihapus dari katalog sejak pesanan ini dibuat -- lewati, HPP lama (kalau ada) dibiarkan apa adanya.
+        if (!(key in hargaModalMap)) return it;
+        const hargaModalBaru = hargaModalMap[key];
+        if ((Number(it.harga_modal) || 0) === hargaModalBaru) return it; // sudah sama, tidak perlu ditulis ulang
+        berubah = true;
+        return { ...it, harga_modal: hargaModalBaru };
+      });
+
+      if (!berubah) continue;
+      batch.update(doc.ref, { items: newItems });
+      opsInBatch++;
+      totalPesananDiubah++;
+      // Batas 1 batch Firestore = 500 operasi -- commit lebih awal supaya ada ruang, lalu lanjut batch baru.
+      if (opsInBatch >= 450) {
+        await batch.commit();
+        batch = db.batch();
+        opsInBatch = 0;
+      }
+    }
+    if (opsInBatch > 0) await batch.commit();
+
+    showToast(`Selesai! HPP diperbarui di ${totalPesananDiubah} dari ${snap.docs.length} pesanan (sisanya sudah sesuai atau produknya sudah dihapus).`, "success");
+  } catch (err) {
+    showToast("Gagal menghitung ulang HPP: " + friendlyFirebaseError(err), "error");
+  }
+}
+
+// ---------- Alat Lanjutan: Hitung Ulang Rekap Produk per Cabang ----------
+// Rekap /stats/produk_cabang (dipakai Dashboard Karyawan untuk tabel "Detail
+// Total per Produk per Cabang", lihat js/utils.js:adjustProdukCabangStats)
+// hanya ke-update otomatis untuk pesanan yang dibuat/diubah/dihapus SETELAH
+// fitur ini dipasang. Pesanan-pesanan lama yang sudah ada sebelumnya tidak
+// pernah ikut terhitung. Alat ini membaca ULANG seluruh riwayat pesanan dari
+// awal dan menulis ulang total yang benar -- aman dijalankan berkali-kali
+// kapan saja (bukan menambah, tapi mengganti total dengan hitungan yang
+// baru dihitung ulang dari nol).
 async function rebuildProdukCabangStats() {
   const profile = lapProfile;
   if (!profile || profile.role !== "owner") return;

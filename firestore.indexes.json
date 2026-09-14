@@ -7,6 +7,13 @@
         { "fieldPath": "cabang_id", "order": "ASCENDING" },
         { "fieldPath": "tanggal", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "tanggal", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

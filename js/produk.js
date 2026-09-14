@@ -126,6 +126,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const waveId = document.getElementById("wave-id").value;
     const label = document.getElementById("wave-label").value.trim();
     const harga = parseFormattedNumber(document.getElementById("wave-harga").value);
+    const hargaModalVal = document.getElementById("wave-harga-modal").value;
+    const harga_modal = hargaModalVal === "" ? 0 : parseFormattedNumber(hargaModalVal);
     const kuotaVal = document.getElementById("wave-kuota").value;
     const kuota = kuotaVal === "" ? null : Number(kuotaVal);
     const tanggalTutupVal = document.getElementById("wave-tanggal-tutup").value;
@@ -148,12 +150,13 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!waves.some((w) => w.id === waveId)) {
             throw new Error("Gelombang ini sudah tidak ada (mungkin baru saja dihapus rekan kerja). Muat ulang halaman.");
           }
-          waves = waves.map((w) => (w.id === waveId ? { ...w, label, harga, kuota, tanggal_tutup } : w));
+          waves = waves.map((w) => (w.id === waveId ? { ...w, label, harga, harga_modal, kuota, tanggal_tutup } : w));
         } else {
           const newWave = {
             id: "w_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
             label,
             harga,
+            harga_modal,
             kuota,
             tanggal_tutup,
             aktif: waves.length === 0, // gelombang pertama otomatis aktif
@@ -188,6 +191,7 @@ function openWaveModal(productId, wave) {
   document.getElementById("wave-id").value = wave ? wave.id : "";
   document.getElementById("wave-label").value = wave ? wave.label : "";
   document.getElementById("wave-harga").value = wave ? Number(wave.harga).toLocaleString("id-ID") : "";
+  document.getElementById("wave-harga-modal").value = wave && wave.harga_modal ? Number(wave.harga_modal).toLocaleString("id-ID") : "";
   document.getElementById("wave-kuota").value = wave && wave.kuota !== null && wave.kuota !== undefined ? wave.kuota : "";
   document.getElementById("wave-tanggal-tutup").value = wave && wave.tanggal_tutup ? wave.tanggal_tutup : "";
   document.getElementById("wave-modal").style.display = "flex";
