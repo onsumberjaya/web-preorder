@@ -54,11 +54,26 @@
   .tentang-fitur-section > h2 { font-size: 16px; font-weight: 800; color: var(--gray-900); margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .tentang-fitur-section > p { margin: 0 0 16px; font-size: 12.5px; color: var(--gray-500); }
   .tentang-fitur-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-  .tentang-fitur-card { padding: 16px 18px; }
-  .tentang-fitur-card h3 { margin: 0 0 10px; font-size: 13px; font-weight: 800; color: var(--brand-700); display: flex; align-items: center; gap: 7px; }
-  .tentang-fitur-card h3 i { font-size: 16px; }
-  .tentang-fitur-card ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--gray-700); line-height: 1.85; }
-  .tentang-fitur-card ul li::marker { color: var(--gray-300); }
+
+  /* PENINGKATAN UI/UX: kartu Fitur Utama diubah jadi dropdown (bisa
+     dibuka/tutup) seperti bagian-bagian di halaman Panduan -- style di
+     bawah ini SENGAJA disalin persis dari panduan.html (nama class sama:
+     .panduan-section dkk) supaya tampilan & interaksinya identik. Karena
+     tiap halaman di aplikasi ini punya <style> khusus halaman sendiri
+     (bukan 1 file CSS gabungan untuk semuanya), disalin ke sini alih-alih
+     dipindah ke css/style.css supaya tidak perlu ubah panduan.html sama
+     sekali (lebih aman, risiko kecil). */
+  .tentang-fitur-grid .panduan-section { margin-bottom: 0; }
+  .tentang-fitur-grid .panduan-section summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+  .tentang-fitur-grid .panduan-section summary::-webkit-details-marker { display: none; }
+  .tentang-fitur-grid .panduan-section-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--brand-100); color: var(--brand-700); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .tentang-fitur-grid .panduan-section-title { flex: 1; font-size: 13px; font-weight: 800; color: var(--brand-700); }
+  .tentang-fitur-grid .panduan-chevron { font-size: 15px; color: var(--gray-400); transition: transform 0.2s ease; flex-shrink: 0; }
+  .tentang-fitur-grid .panduan-section[open] .panduan-chevron { transform: rotate(180deg); }
+  .tentang-fitur-grid .panduan-section[open] .panduan-section-icon { background: var(--brand-600); color: #fff; }
+  .tentang-fitur-grid .panduan-body { padding: 0 16px 14px 62px; }
+  .tentang-fitur-grid .panduan-body ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--gray-700); line-height: 1.85; }
+  .tentang-fitur-grid .panduan-body ul li::marker { color: var(--gray-300); }
   .tentang-footer { text-align: center; color: var(--gray-400); font-size: 12px; padding: 20px 0 6px; }
 </style>
 </head>
@@ -131,71 +146,113 @@
         <h2><i class="ph-bold ph-squares-four"></i> Fitur Utama</h2>
         <p>Kemampuan inti aplikasi ini sejak awal dibangun. Perubahan/penambahan sesudahnya ada di <a href="changelog.html">Riwayat Pembaruan</a> di bawah.</p>
         <div class="tentang-fitur-grid">
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-clipboard-text"></i> Manajemen Pesanan</h3>
-            <ul>
-              <li>Input pesanan multi-produk & multi-gelombang harga sekaligus</li>
-              <li>Uang muka & pelunasan bertahap, status bayar otomatis</li>
-              <li>Nomor nota otomatis, tidak pernah bentrok</li>
-              <li>Tandai status "sudah diambil" per pesanan</li>
-              <li>Filter & pencarian: tanggal, cabang, produk, gelombang, status</li>
-              <li>Deteksi otomatis pesanan dengan harga janggal</li>
-              <li>Riwayat/log tiap kali pesanan diedit</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-storefront"></i> Multi-Cabang & Multi-Peran</h3>
-            <ul>
-              <li>Kelola banyak cabang dalam 1 aplikasi</li>
-              <li>3 peran akun: Owner, Admin Kasir, Karyawan cabang</li>
-              <li>Karyawan cabang hanya melihat data cabangnya sendiri</li>
-              <li>Kelola akun staf & status aktif/nonaktif</li>
-              <li>Status online staf secara real-time</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-chart-line-up"></i> Laporan & Analitik</h3>
-            <ul>
-              <li>Dashboard ringkasan penjualan & grafik tren</li>
-              <li>Laporan lengkap dengan filter, siap export</li>
-              <li>Export ke Excel (.xlsx) dan PDF</li>
-              <li>Cetak nota format A4 maupun struk kecil (dot-matrix)</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-package"></i> Produk & Stok</h3>
-            <ul>
-              <li>Kelola produk & gelombang harga per periode</li>
-              <li>Kuota per gelombang, otomatis dihitung terpakai</li>
-              <li>Catatan stok (bukan pengurangan stok otomatis)</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-whatsapp-logo"></i> Komunikasi Pembeli</h3>
-            <ul>
-              <li>Kirim pesan WhatsApp "siap diambil" 1 klik</li>
-              <li>Kirim pesan pengingat tagihan belum lunas</li>
-              <li>Kirim WA berurutan (satu per satu) ke banyak pembeli sekaligus</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-shield-check"></i> Keamanan & Data</h3>
-            <ul>
-              <li>Login per akun, 1 sesi aktif per perangkat</li>
-              <li>Backup, restore, dan hapus arsip data lama</li>
-              <li>Aturan akses data ketat per peran (Firestore Rules)</li>
-              <li>Ganti password mandiri per akun</li>
-            </ul>
-          </div>
-          <div class="card tentang-fitur-card">
-            <h3><i class="ph-bold ph-device-mobile"></i> Kenyamanan Pemakaian</h3>
-            <ul>
-              <li>Bisa dipasang seperti aplikasi (PWA) di HP/laptop</li>
-              <li>Mode gelap & terang, otomatis ikut sistem</li>
-              <li>Tampilan responsif — nyaman dipakai di HP maupun komputer</li>
-              <li>Pencarian cepat lintas halaman</li>
-            </ul>
-          </div>
+          <details class="panduan-section card" open>
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-clipboard-text"></i></span>
+              <span class="panduan-section-title">Manajemen Pesanan</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Input pesanan multi-produk & multi-gelombang harga sekaligus</li>
+                <li>Uang muka & pelunasan bertahap, status bayar otomatis</li>
+                <li>Nomor nota otomatis, tidak pernah bentrok</li>
+                <li>Tandai status "sudah diambil" per pesanan</li>
+                <li>Filter & pencarian: tanggal, cabang, produk, gelombang, status</li>
+                <li>Deteksi otomatis pesanan dengan harga janggal</li>
+                <li>Riwayat/log tiap kali pesanan diedit</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-storefront"></i></span>
+              <span class="panduan-section-title">Multi-Cabang & Multi-Peran</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Kelola banyak cabang dalam 1 aplikasi</li>
+                <li>3 peran akun: Owner, Admin Kasir, Karyawan cabang</li>
+                <li>Karyawan cabang hanya melihat data cabangnya sendiri</li>
+                <li>Kelola akun staf & status aktif/nonaktif</li>
+                <li>Status online staf secara real-time</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-chart-line-up"></i></span>
+              <span class="panduan-section-title">Laporan & Analitik</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Dashboard ringkasan penjualan & grafik tren</li>
+                <li>Laporan lengkap dengan filter, siap export</li>
+                <li>Export ke Excel (.xlsx) dan PDF</li>
+                <li>Cetak nota format A4 maupun struk kecil (dot-matrix)</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-package"></i></span>
+              <span class="panduan-section-title">Produk & Stok</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Kelola produk & gelombang harga per periode</li>
+                <li>Kuota per gelombang, otomatis dihitung terpakai</li>
+                <li>Catatan stok (bukan pengurangan stok otomatis)</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-whatsapp-logo"></i></span>
+              <span class="panduan-section-title">Komunikasi Pembeli</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Kirim pesan WhatsApp "siap diambil" 1 klik</li>
+                <li>Kirim pesan pengingat tagihan belum lunas</li>
+                <li>Kirim WA berurutan (satu per satu) ke banyak pembeli sekaligus</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-shield-check"></i></span>
+              <span class="panduan-section-title">Keamanan & Data</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Login per akun, 1 sesi aktif per perangkat</li>
+                <li>Backup, restore, dan hapus arsip data lama</li>
+                <li>Aturan akses data ketat per peran (Firestore Rules)</li>
+                <li>Ganti password mandiri per akun</li>
+              </ul>
+            </div>
+          </details>
+          <details class="panduan-section card">
+            <summary>
+              <span class="panduan-section-icon"><i class="ph-bold ph-device-mobile"></i></span>
+              <span class="panduan-section-title">Kenyamanan Pemakaian</span>
+              <i class="ph-bold ph-caret-down panduan-chevron"></i>
+            </summary>
+            <div class="panduan-body">
+              <ul>
+                <li>Bisa dipasang seperti aplikasi (PWA) di HP/laptop</li>
+                <li>Mode gelap & terang, otomatis ikut sistem</li>
+                <li>Tampilan responsif — nyaman dipakai di HP maupun komputer</li>
+                <li>Pencarian cepat lintas halaman</li>
+              </ul>
+            </div>
+          </details>
         </div>
       </div>
 
