@@ -188,8 +188,18 @@ service cloud.firestore {
     // catat/ubah/hapus (SAMA seperti Produk di atas -- keputusan Owner:
     // pengeluaran dicatat terpusat, bukan per-cabang, jadi TIDAK ada
     // pembatasan cabang_id seperti di /orders).
+    //
+    // PERBAIKAN: "read" sebelumnya dibuka untuk SEMUA yang login (termasuk
+    // Karyawan cabang) -- padahal halaman Pengeluaran & Laporan Keuangan
+    // sudah sengaja dikunci Owner & Admin Kasir saja di sisi UI
+    // (data-allowed-roles="owner,admin_kasir" di pengeluaran.html &
+    // laporan-keuangan.html), dan sudah dicek TIDAK ADA halaman lain yang
+    // butuh Karyawan membaca data ini. Data keuangan (jumlah pengeluaran,
+    // kategori) lebih sensitif daripada rekap /stats yang cuma angka jumlah
+    // produk -- jadi read juga dikunci ke Owner & Admin Kasir sekarang,
+    // supaya Karyawan tidak bisa baca lewat console browser sekalipun.
     match /pengeluaran/{pengeluaranId} {
-      allow read: if isSignedIn() && isActiveUser();
+      allow read: if isOwner() || isAdminKasir();
       allow create: if (isOwner() || isAdminKasir())
         && request.resource.data.kategori is string && request.resource.data.kategori.size() > 0
         && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
@@ -209,8 +219,14 @@ service cloud.firestore {
     // catatan pengeluaran lama yang sudah memakai nama kategori itu (lihat
     // catatan di js/pengeluaran.js -- kategori disimpan sebagai teks biasa
     // di dokumen /pengeluaran, bukan referensi id ke sini).
+    //
+    // PERBAIKAN: "read" ikut dikunci Owner & Admin Kasir juga, konsisten
+    // dengan /pengeluaran di atas -- daftar KATEGORI pengeluaran saja
+    // (tanpa nominal) risikonya jauh lebih rendah daripada data /pengeluaran
+    // itu sendiri, tapi tetap tidak ada gunanya dibuka untuk Karyawan yang
+    // memang tidak punya akses ke halaman manapun yang memakainya.
     match /kategori_pengeluaran/{kategoriId} {
-      allow read: if isSignedIn() && isActiveUser();
+      allow read: if isOwner() || isAdminKasir();
       allow write: if (isOwner() || isAdminKasir())
         && request.resource.data.nama is string && request.resource.data.nama.size() > 0;
     }
@@ -433,6 +449,27 @@ service cloud.firestore {
               || sameCabang(get(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
         allow update, delete: if isOwner();
       }
+    }
+
+    // PERBAIKAN (bug kritis): rule "read" di dalam match /payments/{paymentId}
+    // di atas HANYA berlaku untuk akses subcollection LANGSUNG lewat path
+    // spesifik (orders/{orderId}/payments/...) -- rule bersarang seperti itu
+    // TIDAK OTOMATIS berlaku untuk query collectionGroup("payments") (dipakai
+    // js/laporan-keuangan.js, tab "Buku Kas", untuk membaca riwayat
+    // pembayaran dari SEMUA pesanan sekaligus supaya bisa diurut per tanggal
+    // pembayaran sebenarnya). Firestore Rules mewajibkan rule TERPISAH dengan
+    // sintaks wildcard rekursif "{path=**}" khusus untuk query lintas-koleksi
+    // seperti ini -- tanpa rule ini, collectionGroup("payments") SELALU
+    // ditolak "Missing or insufficient permissions", walau rule di atas
+    // sudah benar untuk pemakaian normal (Catat Pembayaran per pesanan).
+    // Cuma "read" yang dibuka di sini (collection group cuma dipakai untuk
+    // BACA), dikunci ke Owner & Admin Kasir saja -- sesuai
+    // data-allowed-roles="owner,admin_kasir" di laporan-keuangan.html, satu-
+    // satunya halaman yang memakai query ini. Penulisan pembayaran
+    // (create/update/delete) TETAP lewat rule di atas, tidak berubah sama
+    // sekali oleh rule tambahan ini.
+    match /{path=**}/payments/{paymentId} {
+      allow read: if isOwner() || isAdminKasir();
     }
   }
 }

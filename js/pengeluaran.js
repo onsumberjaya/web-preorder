@@ -86,7 +86,7 @@ async function applyPengeluaranFilter() {
   const sampai = document.getElementById("peng-sampai").value;
   const kategoriFilter = document.getElementById("peng-filter-kategori").value;
 
-  document.getElementById("pengeluaran-table").innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  document.getElementById("pengeluaran-table").innerHTML = skeletonRows(6);
   try {
     let q = db.collection("pengeluaran");
     if (dari) q = q.where("tanggal", ">=", new Date(dari + "T00:00:00"));
@@ -126,7 +126,7 @@ function renderPengeluaranTable() {
       <td>${escapeHtml(e.keterangan || "")}</td>
       <td style="text-align:right; white-space:nowrap;">${formatRupiah(e.jumlah)}</td>
       <td style="text-align:right; white-space:nowrap;">
-        <button class="icon-btn" title="Edit" onclick='openPengeluaranModal(${JSON.stringify(e).replace(/'/g, "&#39;")})'><i class="ph ph-pencil-simple"></i></button>
+        <button class="icon-btn" title="Edit" onclick="openPengeluaranModal('${e.id}')"><i class="ph ph-pencil-simple"></i></button>
         <button class="icon-btn" title="Hapus" onclick="deletePengeluaran('${e.id}')"><i class="ph ph-trash"></i></button>
       </td>
     </tr>`
@@ -142,7 +142,19 @@ function renderPengeluaranTable() {
 }
 
 // ---------- Modal tambah/edit pengeluaran ----------
-function openPengeluaranModal(item) {
+// PERBAIKAN: sebelumnya menerima seluruh objek pengeluaran langsung lewat
+// parameter (dilempar dari onclick sebagai JSON.stringify(e) yang ditempel
+// ke atribut HTML) -- field "tanggal" yang aslinya objek Timestamp Firestore
+// jadi RUSAK setelah melewati JSON.stringify+dari-HTML-attribute (kehilangan
+// method .toDate()-nya, cuma tersisa {seconds, nanoseconds} polos), bikin
+// "new Date(item.tanggal)" di bawah menghasilkan "Invalid Date" -- field
+// tanggal di modal Edit jadi kosong/salah tiap kali. Sekarang cuma menerima
+// ID (teks biasa, aman ditempel ke onclick apa adanya), lalu objek pesanan
+// ASLINYA (dengan Timestamp yang masih utuh) diambil dari pengExpenses yang
+// sudah ada di memori -- sama seperti pola yang dipakai di seluruh halaman
+// lain aplikasi ini (mis. deleteOrder(id) di js/pesanan.js).
+function openPengeluaranModal(id) {
+  const item = id ? pengExpenses.find((e) => e.id === id) : null;
   document.getElementById("pengeluaran-modal-title").textContent = item ? "Edit Pengeluaran" : "Catat Pengeluaran";
   document.getElementById("peng-id").value = item ? item.id : "";
   document.getElementById("peng-tanggal").value = item ? localYmd(item.tanggal.toDate ? item.tanggal.toDate() : new Date(item.tanggal)) : todayInputValue();

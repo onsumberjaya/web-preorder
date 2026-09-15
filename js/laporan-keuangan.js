@@ -42,7 +42,7 @@ function switchLkTab(tab) {
 async function applyLkFilter() {
   const dari = document.getElementById("lk-dari").value;
   const sampai = document.getElementById("lk-sampai").value;
-  document.getElementById("lk-content").innerHTML = `<div class="loading-center"><div class="spinner"></div></div>`;
+  document.getElementById("lk-content").innerHTML = skeletonRows(6);
 
   try {
     const dariDate = dari ? new Date(dari + "T00:00:00") : null;

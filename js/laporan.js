@@ -662,14 +662,20 @@ function exportPdf() {
 }
 
 // ---------- Alat Lanjutan: Hitung Ulang Rekap Produk per Cabang ----------
-// Rekap /stats/produk_cabang (dipakai Dashboard Karyawan untuk tabel "Detail
-// Total per Produk per Cabang", lihat js/utils.js:adjustProdukCabangStats)
-// hanya ke-update otomatis untuk pesanan yang dibuat/diubah/dihapus SETELAH
-// fitur ini dipasang. Pesanan-pesanan lama yang sudah ada sebelumnya tidak
-// pernah ikut terhitung. Alat ini membaca ULANG seluruh riwayat pesanan dari
-// awal dan menulis ulang total yang benar -- aman dijalankan berkali-kali
-// kapan saja (bukan menambah, tapi mengganti total dengan hitungan yang
-// baru dihitung ulang dari nol).
+// PERBAIKAN: komentar penjelasan di atas fungsi ini sebelumnya salah tempel
+// (isinya menjelaskan fungsi rebuildProdukCabangStats() yang beda -- soal
+// rekap /stats/produk_cabang untuk Dashboard Karyawan, bukan soal HPP sama
+// sekali). Diganti dengan penjelasan yang benar-benar sesuai fungsi ini:
+//
+// Field harga_modal (HPP per item) di pesanan LAMA yang dibuat sebelum fitur
+// "Harga Modal" ada di halaman Produk (atau sebelum harga modal produknya
+// diisi) tidak pernah tercatat -- dianggap Rp0 di Laporan Keuangan → Laba
+// Rugi, bikin Laba Kotor tampil lebih besar dari kenyataan. Alat ini membaca
+// ULANG seluruh riwayat pesanan dan mengisi/menimpa harga_modal tiap item
+// dengan Harga Modal produk yang berlaku SAAT INI (dicocokkan lewat Produk +
+// Gelombang yang dipakai pesanan itu) -- aman dijalankan berkali-kali kapan
+// saja (idempotent: item yang harga_modal-nya sudah sesuai dilewati, tidak
+// ditulis ulang).
 async function rebuildHppPesananLama() {
   const profile = lapProfile;
   if (!profile || profile.role !== "owner") return;
