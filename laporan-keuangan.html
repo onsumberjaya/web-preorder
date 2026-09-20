@@ -32,7 +32,7 @@
     <nav id="sidebar"></nav>
     <main class="content">
       <h1 class="page-title">Laporan Keuangan</h1>
-      <p class="page-subtitle">Buku Kas, Laba Rugi, dan Piutang -- dihitung dari data pesanan &amp; pengeluaran. Laporan defaultnya 30 hari terakhir.</p>
+      <p class="page-subtitle">Ringkasan &amp; grafik, Buku Kas, Laba Rugi, Piutang &amp; Hutang, dan Tren -- dihitung dari data pesanan &amp; pengeluaran. Laporan defaultnya 30 hari terakhir.</p>
 
       <div class="card" style="margin-bottom:16px;">
         <div class="grid grid-2">
@@ -49,6 +49,7 @@
       </div>
 
       <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center;">
+        <button type="button" class="btn-secondary" id="lk-tab-ringkasan" onclick="switchLkTab('ringkasan')"><i class="ph-bold ph-chart-pie-slice"></i> Ringkasan</button>
         <button type="button" class="btn-secondary" id="lk-tab-kas" onclick="switchLkTab('kas')"><i class="ph-bold ph-wallet"></i> Buku Kas</button>
         <button type="button" class="btn-secondary" id="lk-tab-labarugi" onclick="switchLkTab('labarugi')"><i class="ph-bold ph-chart-line-up"></i> Laba Rugi</button>
         <button type="button" class="btn-secondary" id="lk-tab-piutang" onclick="switchLkTab('piutang')"><i class="ph-bold ph-hand-coins"></i> Piutang & Hutang</button>
@@ -61,6 +62,13 @@
 
       <div id="lk-content"><div class="loading-center"><div class="spinner"></div></div></div>
     </main>
+  </div>
+
+  <!-- Modal detail transaksi & catat bayar (dari tab Piutang & Hutang) -->
+  <div class="modal-backdrop" id="lk-detail-modal" style="display:none;">
+    <div class="modal-box" style="max-width:560px;">
+      <div id="lk-detail-content"></div>
+    </div>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>

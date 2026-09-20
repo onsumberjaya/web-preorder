@@ -705,3 +705,63 @@ function updateThemeToggleUI(theme) {
 // atau aplikasi lain) tanpa memberi proteksi keamanan yang nyata -- siapa
 // pun yang paham teknis tetap bisa buka DevTools lewat keyboard shortcut
 // atau menu browser, klik kanan cuma satu dari banyak cara masuk ke situ.
+
+// ---------- Hutang Usaha: pembayaran per TANGGAL BAYAR ----------
+// Dipakai bersama halaman Pengeluaran (js/pengeluaran.js) dan Laporan Keuangan
+// (js/laporan-keuangan.js) supaya aturan pencatatannya cuma ada di 1 tempat.
+// Tiap pembayaran = 1 dokumen di pengeluaran/{id}/pembayaran (dasar Buku Kas
+// kas keluar). Field paid_amount di dokumen pengeluaran tetap dijaga sebagai TOTAL
+// dibayar (dipakai status & Hutang Usaha) lewat transaksi di bawah.
+function hutangPaid(e) {
+  return e.paid_amount !== undefined ? Number(e.paid_amount) || 0 : Number(e.jumlah) || 0;
+}
+
+// Riwayat pembayaran 1 pengeluaran. Pengeluaran LAMA (belum punya riwayat) yang
+// sudah ada bagian dibayar ditampilkan sebagai 1 baris "sebelumnya" (virtual) --
+// otomatis dicatat jadi riwayat begitu ada pembayaran baru.
+async function hutangAmbilRiwayat(expense) {
+  const snap = await db.collection("pengeluaran").doc(expense.id).collection("pembayaran").orderBy("tanggal", "asc").get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const paid = hutangPaid(expense);
+  const virtual = !expense.riwayat_bayar && paid > 0 ? [{ virtual: true, tanggal: expense.tanggal, jumlah: paid, catatan: "Dibayar saat dicatat (data lama)" }] : [];
+  return [...virtual, ...rows];
+}
+
+// Catat 1 pembayaran hutang (tanggal bayar sendiri). Melempar Error dengan pesan
+// siap tampil kalau jumlah tidak valid (mis. melebihi sisa).
+async function hutangCatatBayar(expenseId, tglVal, jumlah, profile) {
+  const ref = db.collection("pengeluaran").doc(expenseId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new Error("Catatan pengeluaran tidak ditemukan.");
+    const e = snap.data();
+    const total = Number(e.jumlah) || 0;
+    const paid = hutangPaid(e);
+    if (jumlah > total - paid) throw new Error(`Jumlah bayar melebihi sisa hutang (${formatRupiah(total - paid)}).`);
+    const base = { kategori: e.kategori, keterangan: e.keterangan || "", created_by: profile.uid, created_by_name: profile.full_name, created_at: firebase.firestore.FieldValue.serverTimestamp() };
+    // Pengeluaran lama yang sudah ada bagian dibayar: catat dulu sebagai pembayaran
+    // awal di tanggal pengeluarannya (persis seperti perhitungan Buku Kas sebelumnya).
+    if (!e.riwayat_bayar && paid > 0) {
+      tx.set(ref.collection("pembayaran").doc(), { ...base, tanggal: e.tanggal, jumlah: paid, awal: true, catatan: "Dibayar saat dicatat (data lama)" });
+    }
+    tx.set(ref.collection("pembayaran").doc(), { ...base, tanggal: new Date(tglVal + "T00:00:00"), jumlah, catatan: "Bayar hutang" });
+    const newPaid = paid + jumlah;
+    tx.update(ref, { paid_amount: newPaid, status_bayar: computeStatusBayar(total, newPaid), riwayat_bayar: true });
+  });
+}
+
+// Hapus 1 pembayaran (koreksi salah input) -- sisa hutang bertambah lagi.
+async function hutangHapusBayar(expenseId, paymentId) {
+  const ref = db.collection("pengeluaran").doc(expenseId);
+  const pref = ref.collection("pembayaran").doc(paymentId);
+  await db.runTransaction(async (tx) => {
+    const pSnap = await tx.get(pref);
+    const eSnap = await tx.get(ref);
+    if (!pSnap.exists || !eSnap.exists) return;
+    const e = eSnap.data();
+    const total = Number(e.jumlah) || 0;
+    const newPaid = Math.max(0, hutangPaid(e) - (Number(pSnap.data().jumlah) || 0));
+    tx.delete(pref);
+    tx.update(ref, { paid_amount: newPaid, status_bayar: computeStatusBayar(total, newPaid) });
+  });
+}

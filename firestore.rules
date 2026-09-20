@@ -149,10 +149,50 @@ service cloud.firestore {
     // sebelumnya: DETEKSI lewat hasOrderAnomaly() + jejak audit di edit_log
     // (ditulis dari sisi aplikasi di js/input-pesanan.js), bukan dicegah di
     // level server.
-    function isEmployeeAllowedOrderEdit(before, after) {
+    //
+    // KETERKAITAN paid_amount <-> DOKUMEN PAYMENT (celah "lunas tanpa uang tercatat"):
+    // sebelumnya staf non-Owner bisa menaikkan paid_amount langsung (console
+    // browser) TANPA membuat dokumen payments apa pun -- piutang hilang padahal
+    // tidak ada uang masuk yang tercatat. Aplikasi sekarang menulis
+    // `last_payment_id` (id dokumen payment yang dibuat di transaksi yang SAMA)
+    // tiap paid_amount naik; rule memastikan dokumen itu (a) BARU -- belum ada
+    // sebelum commit, jadi id lama tidak bisa dipakai ulang, (b) ada setelah
+    // commit, dan (c) jumlahnya persis sama dengan kenaikan paid_amount.
+    //
+    // SAKLAR BERTAHAP: selama paymentLinkEnforced() bernilai false, pembatasan
+    // ini TIDAK dijalankan (field last_payment_id tetap diterima) -- supaya rules
+    // bisa dipublish lebih dulu tanpa mengganggu perangkat yang masih memakai
+    // versi aplikasi lama. Ubah jadi true SETELAH semua perangkat memuat versi
+    // aplikasi terbaru (lihat langkah rilis di CATATAN-RILIS-RULES.md).
+    function paymentLinkEnforced() {
+      return false;
+    }
+    function paymentLinked(orderId, before, after) {
+      return after.get('last_payment_id', null) is string
+        && after.get('last_payment_id', '').size() > 0
+        && !exists(/databases/$(database)/documents/orders/$(orderId)/payments/$(after.get('last_payment_id', 'x')))
+        && existsAfter(/databases/$(database)/documents/orders/$(orderId)/payments/$(after.get('last_payment_id', 'x')))
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)/payments/$(after.get('last_payment_id', 'x'))).data.jumlah
+           == after.get('paid_amount', 0) - before.get('paid_amount', 0);
+    }
+    // Versi untuk pesanan BARU (create): paid_amount awal > 0 wajib ditopang 1
+    // dokumen payment yang dibuat bersamaan. Owner/Admin Kasir dikecualikan di
+    // rule create karena fitur Restore Arsip menulis balik pesanan dengan
+    // paid_amount = jumlah BEBERAPA payment sekaligus.
+    function createPaymentLinked(orderId, data) {
+      return data.get('last_payment_id', null) is string
+        && data.get('last_payment_id', '').size() > 0
+        && existsAfter(/databases/$(database)/documents/orders/$(orderId)/payments/$(data.get('last_payment_id', 'x')))
+        && getAfter(/databases/$(database)/documents/orders/$(orderId)/payments/$(data.get('last_payment_id', 'x'))).data.jumlah
+           == data.paid_amount;
+    }
+    function isEmployeeAllowedOrderEdit(orderId, before, after) {
       let keys = after.diff(before).affectedKeys();
-      return (keys.hasOnly(['paid_amount', 'status_bayar', 'is_diambil', 'tanggal_ambil'])
-              && after.get('paid_amount', 0) >= before.get('paid_amount', 0))
+      return (keys.hasOnly(['paid_amount', 'status_bayar', 'is_diambil', 'tanggal_ambil', 'last_payment_id'])
+              && after.get('paid_amount', 0) >= before.get('paid_amount', 0)
+              && (!paymentLinkEnforced()
+                  || after.get('paid_amount', 0) == before.get('paid_amount', 0)
+                  || paymentLinked(orderId, before, after)))
           || keys.hasOnly(['tanggal', 'nama_pembeli', 'alamat', 'no_hp', 'catatan', 'items', 'total', 'status_bayar', 'edit_log']);
     }
 
@@ -227,7 +267,10 @@ service cloud.firestore {
         && request.resource.data.status_bayar == computedStatusBayar(request.resource.data.jumlah, request.resource.data.paid_amount)
         // created_by/created_at (siapa & kapan pertama kali dicatat) terkunci permanen, tidak boleh diganti saat edit.
         && request.resource.data.get('created_by', null) == resource.data.get('created_by', null)
-        && request.resource.data.get('created_at', null) == resource.data.get('created_at', null);
+        && request.resource.data.get('created_at', null) == resource.data.get('created_at', null)
+        // Whitelist field yang boleh berubah (termasuk riwayat_bayar yang ditulis
+        // transaksi Bayar Hutang) -- field lain tidak bisa disisipkan lewat update.
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tanggal', 'kategori', 'keterangan', 'jumlah', 'paid_amount', 'status_bayar', 'riwayat_bayar']);
       allow delete: if isOwner() || isAdminKasir();
 
       // RIWAYAT PEMBAYARAN pengeluaran/hutang (cicilan/pelunasan, masing-masing
@@ -240,7 +283,8 @@ service cloud.firestore {
         allow create: if (isOwner() || isAdminKasir())
           && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
           && request.resource.data.tanggal is timestamp
-          && request.resource.data.created_by == request.auth.uid;
+          && request.resource.data.created_by == request.auth.uid
+          && existsAfter(/databases/$(database)/documents/pengeluaran/$(pengeluaranId));
         allow update: if (isOwner() || isAdminKasir())
           && request.resource.data.jumlah == resource.data.jumlah
           && request.resource.data.tanggal is timestamp
@@ -322,15 +366,27 @@ service cloud.firestore {
     match /counters/{counterId} {
       allow read: if isSignedIn() && isActiveUser();
 
+      // Counter baru selalu mulai dari 1, dan tiap kenaikan HARUS tepat +1 --
+      // persis seperti yang dilakukan aplikasi (input-pesanan.js &
+      // assignLegacyNotaSeqAtomic di utils.js selalu "seq + 1"). Sebelumnya
+      // syaratnya cuma "lebih besar dari sebelumnya", jadi akun mana pun (termasuk
+      // Karyawan, lewat console browser) bisa melompatkan nomor nota ke angka
+      // berapa pun. Sekarang lompatan bebas (mis. mengatur ulang awal nomor)
+      // cuma boleh Owner. Sisa celah: akun lain masih bisa "membuang" nomor satu
+      // per satu (nomor jadi bolong) -- tidak bisa loncat & tidak bisa bentrok;
+      // menutup ini sepenuhnya butuh server (Cloud Functions), tidak tersedia
+      // di tier gratis.
       allow create: if isSignedIn() && isActiveUser()
         && request.resource.data.keys().hasOnly(['seq'])
         && request.resource.data.seq is number
-        && request.resource.data.seq > 0;
+        && request.resource.data.seq > 0
+        && (isOwner() || request.resource.data.seq == 1);
 
       allow update: if isSignedIn() && isActiveUser()
         && request.resource.data.keys().hasOnly(['seq'])
         && request.resource.data.seq is number
-        && request.resource.data.seq > resource.data.seq;
+        && (request.resource.data.seq == resource.data.seq + 1
+            || (isOwner() && request.resource.data.seq > resource.data.seq));
 
       allow delete: if isOwner();
     }
@@ -355,7 +411,10 @@ service cloud.firestore {
       // backup-nya) tidak boleh diubah lagi setelah dibuat.
       allow update: if isSignedIn() && isActiveUser() && canAccessAllBranches()
         && request.resource.data.nama_file == resource.data.nama_file
-        && request.resource.data.dibuat_oleh == resource.data.dibuat_oleh;
+        && request.resource.data.dibuat_oleh == resource.data.dibuat_oleh
+        // Whitelist: cuma field status/jejak hapus & restore yang boleh berubah
+        // (persis yang ditulis js/arsip.js) -- field lain tidak bisa disisipkan.
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'dihapus_at', 'dihapus_oleh', 'dihapus_oleh_nama', 'direstore_at', 'direstore_oleh', 'direstore_oleh_nama']);
       allow delete: if isOwner();
     }
 
@@ -364,10 +423,10 @@ service cloud.firestore {
     // Owner & Admin Kasir bebas semua cabang, Karyawan cabang lain SAMA SEKALI
     // tidak bisa membaca/menyentuh pesanan cabang lain, walau lewat cara lain
     // di luar tampilan aplikasi (mis. console browser / akses API langsung).
-    // Setelah pesanan dibuat, hanya Owner yang boleh mengubah item/total/data
-    // pembeli; Admin Kasir & Karyawan hanya boleh catat pembayaran & tandai
-    // diambil (di cabang yang mereka boleh akses). Hapus pesanan dibatasi
-    // khusus Owner.
+    // Setelah pesanan dibuat: Owner bebas mengubah; Admin Kasir & Karyawan boleh
+    // (1) catat pembayaran & tandai diambil, dan (2) Edit Pesanan (data pembeli/
+    // item/total) -- lihat isEmployeeAllowedOrderEdit() -- masing-masing hanya
+    // di cabang yang boleh mereka akses. Hapus pesanan dibatasi khusus Owner.
     // Khusus untuk collectionGroup("payments") -- dipakai Buku Kas di halaman
     // Laporan Keuangan untuk baca riwayat pembayaran dari SEMUA pesanan
     // sekaligus (lintas cabang), BUKAN payments 1 pesanan tertentu. Aturan
@@ -422,7 +481,11 @@ service cloud.firestore {
         && (request.resource.data.created_by == request.auth.uid || canAccessAllBranches())
         && request.resource.data.cabang_id is string && request.resource.data.cabang_id.size() > 0
         && (canAccessAllBranches()
-            || (sameCabang(request.resource.data.cabang_id) && isCabangActive(request.resource.data.cabang_id)));
+            || (sameCabang(request.resource.data.cabang_id) && isCabangActive(request.resource.data.cabang_id)))
+        && (!paymentLinkEnforced()
+            || canAccessAllBranches()
+            || request.resource.data.paid_amount == 0
+            || createPaymentLinked(orderId, request.resource.data));
 
       // order_no/created_by/created_at/nota_tahun/nota_seq tidak boleh
       // berubah oleh siapa pun (termasuk Owner) -- itu identitas & nomor
@@ -443,7 +506,7 @@ service cloud.firestore {
         && (resource.data.get('nota_seq', null) == null || request.resource.data.nota_seq == resource.data.nota_seq)
         && (resource.data.get('cabang_id', null) == null || request.resource.data.cabang_id == resource.data.cabang_id)
         && (canAccessAllBranches() || sameCabang(resource.data.get('cabang_id', null)))
-        && (isOwner() || isEmployeeAllowedOrderEdit(resource.data, request.resource.data));
+        && (isOwner() || isEmployeeAllowedOrderEdit(orderId, resource.data, request.resource.data));
 
       allow delete: if isOwner();
 
@@ -484,13 +547,23 @@ service cloud.firestore {
         // normal: Catat Pembayaran belakangan lewat Detail Pesanan untuk
         // pesanan yang sudah lama tersimpan), pengecekan cabang tetap
         // berjalan seperti biasa lewat get() yang sekarang berhasil.
+        //
+        // PERBAIKAN LANJUTAN (celah "payment yatim"): `!exists(...)` di atas
+        // ternyata membuat SIAPA PUN yang login bisa menulis payments/{id} di bawah
+        // pesanan yang TIDAK ADA sama sekali (dokumen yatim yang lalu ikut terbaca
+        // Buku Kas lewat collectionGroup). Diganti existsAfter()/getAfter(): kedua
+        // fungsi ini membaca kondisi SETELAH seluruh batch/transaksi ter-commit,
+        // jadi pesanan yang dibuat BERSAMAAN dengan pembayaran awalnya (1 transaksi)
+        // ikut terlihat -- tidak seperti get()/exists() biasa yang cuma melihat
+        // kondisi sebelum commit. Hasilnya: pembayaran wajib punya pesanan induk yang
+        // benar-benar ada, dan cabang Karyawan tetap dicek ke pesanan induk itu.
         allow create: if isSignedIn() && isActiveUser()
           && request.resource.data.jumlah is number
           && request.resource.data.jumlah > 0
           && (request.resource.data.created_by == request.auth.uid || canAccessAllBranches())
+          && existsAfter(/databases/$(database)/documents/orders/$(orderId))
           && (canAccessAllBranches()
-              || !exists(/databases/$(database)/documents/orders/$(orderId))
-              || sameCabang(get(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
+              || sameCabang(getAfter(/databases/$(database)/documents/orders/$(orderId)).data.get('cabang_id', null)));
         allow update, delete: if isOwner();
       }
     }

@@ -364,7 +364,7 @@ async function deletePengeluaran(id) {
 let bayarId = null;
 
 function pengPaid(e) {
-  return e.paid_amount !== undefined ? Number(e.paid_amount) || 0 : Number(e.jumlah) || 0;
+  return hutangPaid(e);
 }
 
 async function openBayarModal(id) {
@@ -396,12 +396,7 @@ async function renderBayarModal() {
   const box = document.getElementById("bayar-riwayat");
   box.innerHTML = `<p style="font-size:12.5px; color:var(--gray-400);">Memuat riwayat...</p>`;
   try {
-    const snap = await db.collection("pengeluaran").doc(bayarId).collection("pembayaran").orderBy("tanggal", "asc").get();
-    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    // Pengeluaran lama (belum punya riwayat) tapi sudah ada bagian yang dibayar:
-    // tampilkan sebagai satu baris "sebelumnya" -- otomatis dicatat jadi riwayat begitu ada pembayaran baru.
-    const virtual = !item.riwayat_bayar && paid > 0 ? [{ virtual: true, tanggal: item.tanggal, jumlah: paid, catatan: "Dibayar saat dicatat (data lama)" }] : [];
-    const all = [...virtual, ...rows];
+    const all = await hutangAmbilRiwayat(item);
     box.innerHTML =
       all.length === 0
         ? `<p style="font-size:12.5px; color:var(--gray-400); margin:10px 0;">Belum ada pembayaran.</p>`
@@ -438,25 +433,8 @@ async function submitBayarHutang(ev) {
     showToast("Jumlah bayar harus lebih dari 0.", "error");
     return;
   }
-  const ref = db.collection("pengeluaran").doc(bayarId);
   try {
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) throw new Error("Catatan pengeluaran tidak ditemukan.");
-      const e = snap.data();
-      const total = Number(e.jumlah) || 0;
-      const paid = pengPaid(e);
-      if (jumlah > total - paid) throw new Error(`Jumlah bayar melebihi sisa hutang (${formatRupiah(total - paid)}).`);
-      const base = { kategori: e.kategori, keterangan: e.keterangan || "", created_by: pengProfile.uid, created_by_name: pengProfile.full_name, created_at: firebase.firestore.FieldValue.serverTimestamp() };
-      // Pengeluaran lama yang sudah ada bagian dibayar: catat dulu sebagai pembayaran
-      // awal di tanggal pengeluarannya (persis seperti perhitungan Buku Kas sebelumnya).
-      if (!e.riwayat_bayar && paid > 0) {
-        tx.set(ref.collection("pembayaran").doc(), { ...base, tanggal: e.tanggal, jumlah: paid, awal: true, catatan: "Dibayar saat dicatat (data lama)" });
-      }
-      tx.set(ref.collection("pembayaran").doc(), { ...base, tanggal: new Date(tglVal + "T00:00:00"), jumlah, catatan: "Bayar hutang" });
-      const newPaid = paid + jumlah;
-      tx.update(ref, { paid_amount: newPaid, status_bayar: computeStatusBayar(total, newPaid), riwayat_bayar: true });
-    });
+    await hutangCatatBayar(bayarId, tglVal, jumlah, pengProfile);
     showToast("Pembayaran dicatat.", "success");
     await refreshSetelahBayar();
   } catch (err) {
@@ -466,19 +444,8 @@ async function submitBayarHutang(ev) {
 
 async function deleteBayarHutang(pid) {
   if (!(await showConfirmModal("Hapus pembayaran ini? Sisa hutang akan bertambah lagi sebesar jumlah pembayaran tersebut.", { okLabel: "Ya, Hapus", danger: true }))) return;
-  const ref = db.collection("pengeluaran").doc(bayarId);
-  const pref = ref.collection("pembayaran").doc(pid);
   try {
-    await db.runTransaction(async (tx) => {
-      const pSnap = await tx.get(pref);
-      const eSnap = await tx.get(ref);
-      if (!pSnap.exists || !eSnap.exists) return;
-      const e = eSnap.data();
-      const total = Number(e.jumlah) || 0;
-      const newPaid = Math.max(0, pengPaid(e) - (Number(pSnap.data().jumlah) || 0));
-      tx.delete(pref);
-      tx.update(ref, { paid_amount: newPaid, status_bayar: computeStatusBayar(total, newPaid) });
-    });
+    await hutangHapusBayar(bayarId, pid);
     showToast("Pembayaran dihapus.", "success");
     await refreshSetelahBayar();
   } catch (err) {

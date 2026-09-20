@@ -1007,6 +1007,7 @@ async function handleSubmit(e) {
         items: itemsData,
         total,
         paid_amount: paidAmount,
+        ...(paymentRef ? { last_payment_id: paymentRef.id } : {}), // penopang paid_amount awal (lihat Firestore Rules)
         status_bayar: computeStatusBayar(total, paidAmount),
         is_diambil: false,
         tanggal_ambil: null,

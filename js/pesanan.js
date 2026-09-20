@@ -1245,7 +1245,9 @@ function renderDetailModal(order) {
             created_by_name: profile.full_name,
             created_at: firebase.firestore.FieldValue.serverTimestamp(),
           });
-          tx.update(orderRef, { paid_amount: newPaid, status_bayar: newStatus });
+          // last_payment_id = id dokumen payment yang dibuat di transaksi yang SAMA -- dipakai
+          // Firestore Rules untuk memastikan kenaikan paid_amount selalu ada payment-nya.
+          tx.update(orderRef, { paid_amount: newPaid, status_bayar: newStatus, last_payment_id: paymentRef.id });
           return { ...order, paid_amount: newPaid, status_bayar: newStatus };
         });
         showToast("Pembayaran tercatat.", "success");
