@@ -4,15 +4,34 @@
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "cabang_id", "order": "ASCENDING" },
-        { "fieldPath": "tanggal", "order": "DESCENDING" }
+        {
+          "fieldPath": "cabang_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tanggal",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "tanggal", "order": "ASCENDING" }
+        {
+          "fieldPath": "tanggal",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pembayaran",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "tanggal",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],

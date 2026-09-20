@@ -36,7 +36,7 @@
           <button class="btn-primary btn-sm" onclick="openPengeluaranModal()">+ Catat Pengeluaran</button>
         </div>
       </div>
-      <p class="page-subtitle">Catat pengeluaran (beli benih, ongkir, operasional, dll). Data ini jadi dasar Buku Kas &amp; Laba Rugi di halaman Laporan Keuangan.</p>
+      <p class="page-subtitle">Catat pengeluaran (beli benih, ongkir, operasional, dll). Data ini jadi dasar Buku Kas &amp; Laba Rugi di halaman Laporan Keuangan. Hutang ke pemasok bisa dicicil/dilunasi lewat tombol koin di baris pengeluaran -- Buku Kas mencatatnya di tanggal bayar.</p>
 
       <div class="card" style="margin-bottom:16px;">
         <div class="grid grid-3">
@@ -85,13 +85,51 @@
         </div>
         <div class="field">
           <label>Jumlah (Rp) *</label>
-          <input type="text" inputmode="numeric" id="peng-jumlah" required oninput="formatNumberInputLive(this)" />
+          <input type="text" inputmode="numeric" id="peng-jumlah" required oninput="formatNumberInputLive(this); syncPengBayarLunasDefault();" />
+        </div>
+        <div class="field">
+          <label>Jumlah Dibayar (Rp) *</label>
+          <input type="text" inputmode="numeric" id="peng-dibayar" required oninput="formatNumberInputLive(this)" />
+          <p id="peng-dibayar-locked-note" style="display:none; font-size:11.5px; color:var(--gray-500); margin:4px 0 0;">
+            Pengeluaran ini sudah punya riwayat pembayaran -- untuk mencatat cicilan/pelunasan atau mengoreksinya, pakai tombol koin (Bayar/Riwayat) di baris pengeluaran.
+          </p>
+          <p id="peng-dibayar-hint" style="font-size:11.5px; color:var(--gray-500); margin:4px 0 0;">
+            Kosongkan/samakan dengan Jumlah kalau sudah lunas dibayar tunai. Isi lebih kecil (atau 0) kalau masih ada Hutang Usaha ke pemasok.
+            <a href="#" onclick="document.getElementById('peng-dibayar').value = document.getElementById('peng-jumlah').value; return false;">Isi Lunas</a>
+          </p>
         </div>
         <div style="display:flex; gap:10px; margin-top:18px;">
           <button type="submit" class="btn-primary" style="flex:1; justify-content:center;">Simpan</button>
           <button type="button" class="btn-secondary" onclick="closePengeluaranModal()">Batal</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal bayar hutang & riwayat pembayaran -->
+  <div class="modal-backdrop" id="bayar-modal" style="display:none;">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">Bayar Hutang &amp; Riwayat</h3>
+      <div id="bayar-info"></div>
+      <div id="bayar-riwayat"></div>
+      <div id="bayar-form-wrap">
+        <form id="bayar-form">
+          <div class="grid grid-2">
+            <div class="field">
+              <label>Tanggal Bayar *</label>
+              <input type="date" id="bayar-tanggal" required />
+            </div>
+            <div class="field">
+              <label>Jumlah Bayar (Rp) *</label>
+              <input type="text" inputmode="numeric" id="bayar-jumlah" required oninput="formatNumberInputLive(this)" />
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%; justify-content:center; margin-top:6px;">Catat Pembayaran</button>
+        </form>
+      </div>
+      <div style="display:flex; margin-top:14px;">
+        <button type="button" class="btn-secondary" style="flex:1; justify-content:center;" onclick="closeBayarModal()">Tutup</button>
+      </div>
     </div>
   </div>
 

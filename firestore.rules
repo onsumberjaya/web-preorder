@@ -198,19 +198,55 @@ service cloud.firestore {
     // kategori) lebih sensitif daripada rekap /stats yang cuma angka jumlah
     // produk -- jadi read juga dikunci ke Owner & Admin Kasir sekarang,
     // supaya Karyawan tidak bisa baca lewat console browser sekalipun.
+    // FITUR HUTANG USAHA: pengeluaran sekarang punya paid_amount/status_bayar
+    // sendiri, PERSIS pola yang sama dengan /orders di atas (pakai fungsi
+    // computedStatusBayar() yang sama) -- supaya pengeluaran yang belum
+    // dibayar tunai (mis. beli pupuk secara utang ke pemasok) bisa dicatat
+    // & dipantau di Laporan Keuangan, bukan dianggap "sudah lunas" semua
+    // seperti sebelumnya. Dokumen /pengeluaran LAMA (dibuat sebelum fitur
+    // ini ada) TIDAK PUNYA field ini sama sekali -- itu tidak masalah untuk
+    // MEMBACA (Rules tidak memvalidasi bentuk data untuk read, cuma untuk
+    // write), sisi klien (js/pengeluaran.js & js/laporan-keuangan.js)
+    // menganggap dokumen lama begitu sebagai "lunas" (paid_amount == jumlah)
+    // secara default. Field ini WAJIB diisi untuk pencatatan/edit BARU
+    // mulai sekarang.
     match /pengeluaran/{pengeluaranId} {
       allow read: if isOwner() || isAdminKasir();
       allow create: if (isOwner() || isAdminKasir())
         && request.resource.data.kategori is string && request.resource.data.kategori.size() > 0
         && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
+        && request.resource.data.paid_amount is number && request.resource.data.paid_amount >= 0
+        && request.resource.data.paid_amount <= request.resource.data.jumlah
+        && request.resource.data.status_bayar == computedStatusBayar(request.resource.data.jumlah, request.resource.data.paid_amount)
         && request.resource.data.created_by == request.auth.uid;
       allow update: if (isOwner() || isAdminKasir())
         && request.resource.data.kategori is string && request.resource.data.kategori.size() > 0
         && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
+        && request.resource.data.paid_amount is number && request.resource.data.paid_amount >= 0
+        && request.resource.data.paid_amount <= request.resource.data.jumlah
+        && request.resource.data.status_bayar == computedStatusBayar(request.resource.data.jumlah, request.resource.data.paid_amount)
         // created_by/created_at (siapa & kapan pertama kali dicatat) terkunci permanen, tidak boleh diganti saat edit.
         && request.resource.data.get('created_by', null) == resource.data.get('created_by', null)
         && request.resource.data.get('created_at', null) == resource.data.get('created_at', null);
       allow delete: if isOwner() || isAdminKasir();
+
+      // RIWAYAT PEMBAYARAN pengeluaran/hutang (cicilan/pelunasan, masing-masing
+      // dengan TANGGAL BAYAR sendiri) -- dasar kas KELUAR di Buku Kas. Jumlah tidak
+      // boleh diubah setelah dibuat (koreksi = hapus lalu catat ulang); update cuma
+      // untuk menyamakan salinan kategori/keterangan/tanggal-awal saat pengeluaran
+      // induknya diedit. Hanya Owner & Admin Kasir, sama seperti /pengeluaran.
+      match /pembayaran/{pembayaranId} {
+        allow read: if isOwner() || isAdminKasir();
+        allow create: if (isOwner() || isAdminKasir())
+          && request.resource.data.jumlah is number && request.resource.data.jumlah > 0
+          && request.resource.data.tanggal is timestamp
+          && request.resource.data.created_by == request.auth.uid;
+        allow update: if (isOwner() || isAdminKasir())
+          && request.resource.data.jumlah == resource.data.jumlah
+          && request.resource.data.tanggal is timestamp
+          && request.resource.data.get('created_by', null) == resource.data.get('created_by', null);
+        allow delete: if isOwner() || isAdminKasir();
+      }
     }
 
     // Daftar kategori pengeluaran (dropdown pilihan di halaman Pengeluaran)
@@ -346,6 +382,14 @@ service cloud.firestore {
     // memakai collectionGroup("payments").
     match /{path=**}/payments/{paymentId} {
       allow read: if isSignedIn() && isActiveUser() && canAccessAllBranches();
+    }
+
+    // Sama seperti di atas, untuk collectionGroup("pembayaran") -- riwayat
+    // pembayaran PENGELUARAN lintas semua catatan, dipakai Buku Kas (kas keluar
+    // per tanggal bayar). Nama koleksinya SENGAJA beda dari "payments" supaya
+    // tidak tercampur ke kas masuk.
+    match /{path=**}/pembayaran/{pembayaranId} {
+      allow read: if isSignedIn() && isActiveUser() && (isOwner() || isAdminKasir());
     }
 
     match /orders/{orderId} {

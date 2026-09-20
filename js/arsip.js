@@ -239,6 +239,8 @@ async function downloadArsipBackup() {
       dibuat_oleh_nama: arProfile.full_name || arProfile.username || "-",
       jumlah_pesanan: orders.length,
       filter_ringkas: filterRingkasLengkap,
+      rentang_dari: dari, // dipakai Laporan Keuangan untuk peringatan "data periode ini sudah diarsipkan & dihapus"
+      rentang_sampai: sampai,
       status: "utuh",
     });
     logId = logRef.id;
@@ -269,6 +271,7 @@ function renderPostBackupBox() {
       </label>
       <button class="btn-danger" id="ar-delete-btn" disabled onclick="hapusArsipDariDatabase()"><i class="ph-bold ph-trash"></i> Hapus ${arLastBackup.jumlah} Pesanan Ini dari Database</button>
       <p style="font-size:12px; color:var(--gray-500); margin:8px 0 0;">Menghapus permanen dari database -- kalau nanti ingin ditampilkan lagi, gunakan "Restore dari File Backup" di bawah dengan file yang baru saja diunduh ini.</p>
+      <p style="font-size:12px; color:var(--red-600); margin:8px 0 0;"><i class="ph-bold ph-warning"></i> <strong>Dampak ke Laporan Keuangan:</strong> omzet, kas masuk (pembayaran), dan piutang pesanan ini ikut hilang dari Buku Kas, Laba Rugi &amp; Tren. Pengeluaran TIDAK ikut terhapus, jadi laporan periode ini akan tampak rugi besar. <strong>Export laporan periode ini (Excel/PDF) dulu</strong> sebelum menghapus.</p>
     </div>`
         : `<p style="font-size:12.5px; color:var(--gray-500); margin-top:8px;">Hanya Owner yang bisa menghapus pesanan dari database setelah dibackup. Silakan minta Owner membuka halaman ini untuk melanjutkan penghapusan kalau memang sudah ingin dihapus.</p>`
     }
@@ -286,7 +289,7 @@ async function hapusArsipDariDatabase() {
   if (!arLastBackup) return;
   if (
     !(await showConfirmModal(
-      `Menghapus PERMANEN ${arLastBackup.jumlah} pesanan dari database. Tindakan ini tidak bisa dibatalkan (kecuali direstore lagi dari file backup yang baru saja diunduh). Lanjutkan?`,
+      `Menghapus PERMANEN ${arLastBackup.jumlah} pesanan dari database. Tindakan ini tidak bisa dibatalkan (kecuali direstore lagi dari file backup yang baru saja diunduh). Omzet, kas masuk & piutang pesanan ini juga akan hilang dari Laporan Keuangan (pengeluaran tetap ada) -- sudah export laporan periode ini? Lanjutkan?`,
       { okLabel: "Ya, Hapus Permanen", danger: true }
     ))
   )

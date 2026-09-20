@@ -76,7 +76,7 @@ ini tidak diperlukan -- aplikasi tetap jalan normal tanpanya.
 > pemakaian/bulan, dulu ~1 juta) dan **biasanya mewajibkan akun penagihan (kartu) tersambung ke Google
 > Cloud** walau masih di bawah kuota gratis. Ini bukan lagi "aktifkan, gratis, selesai" seperti
 > gambaran awal -- ada biaya potensial dan langkah setup ekstra (Google Cloud Billing) yang di luar
-> filosofi "gratis selamanya, tanpa kartu" aplikasi ini.
+> filosofi "gratis, tanpa kartu" aplikasi ini.
 >
 > **Rekomendasi: LEWATI bagian ini.** App Check murni pagar tambahan (mencegah `apiKey` dipakai orang
 > lain buat boros kuota lewat luar aplikasi) -- BUKAN perbaikan bug, aplikasi 100% aman dan lengkap
@@ -330,7 +330,7 @@ Setiap kali Anda edit file (misalnya minta saya tambah fitur lagi), tinggal:
   Kenapa tidak bisa dikunci lebih ketat: Firestore Rules cuma bisa membaca *siapa* yang login
   (`request.auth.uid`), bukan *dari sesi/perangkat mana* request itu dikirim -- membedakan itu perlu
   "custom claim" di token, yang cuma bisa diset lewat Firebase Admin SDK (artinya wajib ada server/
-  Cloud Function). Aplikasi ini sengaja dibuat 100% tanpa server supaya bisa gratis selamanya di
+  Cloud Function). Aplikasi ini sengaja dibuat 100% tanpa server supaya bisa gratis di
   GitHub Pages, jadi batasan ini diterima sebagai konsekuensinya -- BUKAN sesuatu yang lupa
   dikerjakan. Risikonya juga tergolong rendah: ini bukan celah yang bisa dipakai ORANG ASING dari
   luar (tetap wajib sudah pernah login sah di perangkat itu duluan) -- risikonya lebih ke arah
@@ -342,7 +342,7 @@ Setiap kali Anda edit file (misalnya minta saya tambah fitur lagi), tinggal:
   keamanan Firebase tanpa server backend). Tiap orang ganti password sendiri lewat menu
   "Ganti Password Saya" di sidebar. Kalau karyawan lupa password, solusinya: nonaktifkan akun lama,
   buat akun baru untuknya.
-- **Domain**: alamat `namaanda.github.io/...` gratis selamanya. Kalau nanti ingin domain sendiri
+- **Domain**: alamat `namaanda.github.io/...` gratis. Kalau nanti ingin domain sendiri
   seperti `tokobenih.com`, itu perlu beli domain (~Rp150rb/tahun) lalu dihubungkan ke GitHub Pages
   (saya bisa bantu kalau saatnya tiba). Kalau App Check (Bagian 1f) sudah diaktifkan, jangan lupa
   tambahkan domain baru itu ke daftar domain reCAPTCHA juga -- lihat catatan di Bagian 1f.

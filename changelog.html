@@ -57,9 +57,24 @@
       <div class="card">
         <div class="changelog-entry">
           <div class="changelog-version-row">
-            <h2>Versi 1.3</h2>
+            <h2>Versi 1.4</h2>
             <span class="changelog-badge-new">Terbaru</span>
           </div>
+          <ul class="changelog-list">
+            <li>Halaman baru <strong>Laporan Keuangan</strong> (khusus Owner & Admin Kasir): Buku Kas, Laba Rugi, Piutang & Hutang, dan Tren & Analisis 6 bulan — bisa di-export ke Excel dan PDF.</li>
+            <li>Halaman baru <strong>Pengeluaran</strong> untuk mencatat biaya operasional per kategori. Kategori bisa ditambah atau dihapus sendiri.</li>
+            <li><strong>Harga Modal</strong> per gelombang di halaman Produk, dipakai menghitung HPP dan laba di Laba Rugi. Ada penanda "Belum final" kalau masih ada pesanan yang HPP-nya belum lengkap.</li>
+            <li><strong>Hutang Usaha</strong>: pengeluaran bisa dicatat sebagian dibayar, lalu dicicil atau dilunasi lewat tombol koin di baris pengeluaran. Buku Kas mencatat kas keluar di tanggal bayar, bukan tanggal pengeluaran.</li>
+            <li>Piutang & Hutang sekarang menampilkan semua yang belum lunas saat ini, tidak lagi hilang saat filter tanggal diganti. Piutang yang sudah lama belum lunas disorot merah.</li>
+            <li>Filter kategori di Laba Rugi hanya memilih rincian biaya — Laba Bersih selalu dihitung dari semua kategori.</li>
+            <li>Export Excel/PDF untuk tab Tren & Analisis, dan kolom "Saldo" di Buku Kas diganti "Kas Bersih Berjalan" supaya tidak tertukar dengan saldo kas sebenarnya.</li>
+            <li>Peringatan di halaman Arsip PO tentang dampak hapus pesanan ke Laporan Keuangan, dan banner peringatan di Laporan Keuangan kalau periodenya mencakup arsip yang sudah dihapus.</li>
+            <li>Perbaikan aturan akses agar Buku Kas bisa membaca riwayat pembayaran lintas pesanan.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.3</h2></div>
           <ul class="changelog-list">
             <li>Toast "Batalkan" (undo) selama beberapa detik setelah hapus pesanan — konfirmasi hapus tetap ada seperti biasa.</li>
             <li>Format angka otomatis (pemisah ribuan) saat mengetik nominal uang, supaya lebih gampang dicek sebelum disimpan.</li>
