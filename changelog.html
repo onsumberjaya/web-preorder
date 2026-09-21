@@ -57,9 +57,20 @@
       <div class="card">
         <div class="changelog-entry">
           <div class="changelog-version-row">
-            <h2>Versi 1.5</h2>
+            <h2>Versi 1.6</h2>
             <span class="changelog-badge-new">Terbaru</span>
           </div>
+          <ul class="changelog-list">
+            <li><strong>Pengamanan data transaksi</strong> di sisi database: nomor nota tidak bisa dilompatkan, setiap pembayaran wajib terhubung ke pesanan yang benar-benar ada, dan kenaikan jumlah yang sudah dibayar wajib tercatat sebagai riwayat pembayaran. Perubahan data pengeluaran dan riwayat arsip juga dibatasi hanya pada kolom yang memang dipakai aplikasi.</li>
+            <li><strong>Rekap bulanan tersimpan otomatis saat Backup Arsip</strong> (jumlah pesanan, omzet, HPP, dan kas masuk per bulan). Rekap ini tampil di peringatan Laporan Keuangan dan ikut dihitung di tab Tren, jadi omzet bulan-bulan lama tidak hilang setelah pesanannya dihapus dari database.</li>
+            <li><strong>Lebih hemat kuota baca database:</strong> setelah mencatat pembayaran dari jendela detail, hanya tab Piutang &amp; Hutang yang dimuat ulang. Tab lain menampilkan tombol "Muat Ulang Laporan" supaya angka Buku Kas dan Laba Rugi bisa diperbarui saat Anda siap.</li>
+            <li>Peringatan di halaman Arsip PO diperbarui sesuai dampak sebenarnya terhadap Laporan Keuangan.</li>
+            <li>Perbaikan: <strong>kategori pengeluaran sekarang bisa dihapus</strong> (sebelumnya ditolak oleh aturan database untuk semua akun) dan <strong>bisa diubah namanya</strong> lewat tombol pensil di Kelola Kategori. Catatan pengeluaran lama yang memakai nama itu ikut diganti supaya filter dan laporan tetap menyatu.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.5</h2></div>
           <ul class="changelog-list">
             <li>Tab baru <strong>Ringkasan</strong> di paling kiri Laporan Keuangan — jadi tampilan pertama saat halaman dibuka. Berisi kartu ringkasan (Omzet, Kas Masuk, Kas Keluar, Laba Bersih, Piutang, Hutang Usaha) dan 7 grafik: arus kas (harian/mingguan/bulanan) beserta kas bersih kumulatif, dari omzet ke laba bersih, status pembayaran pesanan, omzet per cabang, 5 produk teratas, biaya per kategori, dan umur piutang. Bisa di-export ke Excel/PDF.</li>
             <li>Buku Kas: klik judul kolom <strong>Tanggal</strong> untuk membalik urutan dari terlama atau terbaru. Kolom Kas Bersih Berjalan tetap dihitung urut waktu, dan hasil export mengikuti urutan yang sedang tampil.</li>

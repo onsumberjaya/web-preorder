@@ -186,6 +186,34 @@ async function previewArsipData() {
   }
 }
 
+// Rekap PER BULAN dari pesanan yang akan diarsipkan -- disimpan di dokumen
+// Riwayat Arsip (arsip_log.rekap_bulanan) supaya angka pentingnya (omzet, HPP, kas
+// masuk) TIDAK hilang dari Laporan Keuangan setelah pesanannya dihapus dari
+// database. Dikelompokkan per bulan tanggal PESANAN (omzet/HPP -- sama seperti
+// Laba Rugi) dan per bulan tanggal PEMBAYARAN (kas masuk -- sama seperti Buku
+// Kas). Karena melekat pada dokumen arsip, rekap otomatis ikut "hilang" begitu arsip
+// direstore (status kembali "utuh") -- tidak ada penghitungan ganda dengan pesanan
+// yang muncul lagi di database.
+function buildRekapBulanan(orders) {
+  const rekap = {};
+  const kunci = (t) => {
+    const d = t && typeof t.toDate === "function" ? t.toDate() : new Date(t); // Timestamp Firestore / Date / string
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  };
+  const ambil = (k) => (rekap[k] = rekap[k] || { pesanan: 0, omzet: 0, hpp: 0, hpp_kurang: 0, kas_masuk: 0 });
+  orders.forEach((o) => {
+    const r = ambil(kunci(o.tanggal));
+    r.pesanan += 1;
+    r.omzet += Number(o.total) || 0;
+    r.hpp += (o.items || []).reduce((s, it) => s + (Number(it.harga_modal) || 0) * (Number(it.jumlah) || 0), 0);
+    if ((o.items || []).some((it) => it.harga_modal === undefined || it.harga_modal === null)) r.hpp_kurang += 1;
+    (o.__payments || []).forEach((p) => {
+      ambil(kunci(p.tanggal)).kas_masuk += Number(p.jumlah) || 0;
+    });
+  });
+  return rekap;
+}
+
 function buildArsipFilename(dari, sampai) {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
@@ -241,6 +269,7 @@ async function downloadArsipBackup() {
       filter_ringkas: filterRingkasLengkap,
       rentang_dari: dari, // dipakai Laporan Keuangan untuk peringatan "data periode ini sudah diarsipkan & dihapus"
       rentang_sampai: sampai,
+      rekap_bulanan: buildRekapBulanan(orders), // omzet/HPP/kas masuk per bulan -- lihat buildRekapBulanan()
       status: "utuh",
     });
     logId = logRef.id;
@@ -271,7 +300,7 @@ function renderPostBackupBox() {
       </label>
       <button class="btn-danger" id="ar-delete-btn" disabled onclick="hapusArsipDariDatabase()"><i class="ph-bold ph-trash"></i> Hapus ${arLastBackup.jumlah} Pesanan Ini dari Database</button>
       <p style="font-size:12px; color:var(--gray-500); margin:8px 0 0;">Menghapus permanen dari database -- kalau nanti ingin ditampilkan lagi, gunakan "Restore dari File Backup" di bawah dengan file yang baru saja diunduh ini.</p>
-      <p style="font-size:12px; color:var(--red-600); margin:8px 0 0;"><i class="ph-bold ph-warning"></i> <strong>Dampak ke Laporan Keuangan:</strong> omzet, kas masuk (pembayaran), dan piutang pesanan ini ikut hilang dari Buku Kas, Laba Rugi &amp; Tren. Pengeluaran TIDAK ikut terhapus, jadi laporan periode ini akan tampak rugi besar. <strong>Export laporan periode ini (Excel/PDF) dulu</strong> sebelum menghapus.</p>
+      <p style="font-size:12px; color:var(--red-600); margin:8px 0 0;"><i class="ph-bold ph-warning"></i> <strong>Dampak ke Laporan Keuangan:</strong> rincian transaksi pesanan ini (baris Buku Kas, piutang) ikut hilang dari laporan, dan pengeluaran TIDAK ikut terhapus sehingga Laba Rugi periode ini akan tampak rugi. Rekap per bulan (omzet, HPP, kas masuk) otomatis tersimpan di Riwayat Arsip &amp; tampil sebagai peringatan di Laporan Keuangan, dan ikut dihitung di tab Tren. <strong>Export laporan periode ini (Excel/PDF) dulu</strong> kalau butuh rincian lengkapnya.</p>
     </div>`
         : `<p style="font-size:12.5px; color:var(--gray-500); margin-top:8px;">Hanya Owner yang bisa menghapus pesanan dari database setelah dibackup. Silakan minta Owner membuka halaman ini untuk melanjutkan penghapusan kalau memang sudah ingin dihapus.</p>`
     }
@@ -289,7 +318,7 @@ async function hapusArsipDariDatabase() {
   if (!arLastBackup) return;
   if (
     !(await showConfirmModal(
-      `Menghapus PERMANEN ${arLastBackup.jumlah} pesanan dari database. Tindakan ini tidak bisa dibatalkan (kecuali direstore lagi dari file backup yang baru saja diunduh). Omzet, kas masuk & piutang pesanan ini juga akan hilang dari Laporan Keuangan (pengeluaran tetap ada) -- sudah export laporan periode ini? Lanjutkan?`,
+      `Menghapus PERMANEN ${arLastBackup.jumlah} pesanan dari database. Tindakan ini tidak bisa dibatalkan (kecuali direstore lagi dari file backup yang baru saja diunduh). Rincian transaksi pesanan ini juga akan hilang dari Laporan Keuangan (pengeluaran tetap ada; rekap bulanannya tersimpan di Riwayat Arsip) -- sudah export laporan periode ini? Lanjutkan?`,
       { okLabel: "Ya, Hapus Permanen", danger: true }
     ))
   )

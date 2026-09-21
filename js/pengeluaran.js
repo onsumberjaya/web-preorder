@@ -461,6 +461,15 @@ function openKategoriModal() {
 function closeKategoriModal() {
   document.getElementById("kategori-modal").style.display = "none";
 }
+let kategoriEditId = null; // id kategori yang sedang diubah namanya (baris berubah jadi kolom input)
+function startKategoriEdit(id) {
+  kategoriEditId = id;
+  renderKategoriList();
+}
+function cancelKategoriEdit() {
+  kategoriEditId = null;
+  renderKategoriList();
+}
 function renderKategoriList() {
   const box = document.getElementById("kategori-list");
   if (!box) return;
@@ -469,14 +478,88 @@ function renderKategoriList() {
     return;
   }
   box.innerHTML = pengKategoriList
-    .map(
-      (k) => `
+    .map((k) =>
+      k.id === kategoriEditId
+        ? `
+    <div style="display:flex; align-items:center; gap:6px; padding:8px 0; border-bottom:1px solid var(--gray-100);">
+      <input type="text" id="kategori-edit-input" value="${escapeHtml(k.nama)}" maxlength="40" style="flex:1;"
+        onkeydown="if (event.key === 'Enter') { event.preventDefault(); saveKategoriEdit('${k.id}'); } else if (event.key === 'Escape') { cancelKategoriEdit(); }" />
+      <button type="button" class="icon-btn" title="Simpan" onclick="saveKategoriEdit('${k.id}')"><i class="ph ph-check"></i></button>
+      <button type="button" class="icon-btn" title="Batal" onclick="cancelKategoriEdit()"><i class="ph ph-x"></i></button>
+    </div>`
+        : `
     <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--gray-100);">
       <span style="font-size:13.5px;">${escapeHtml(k.nama)}</span>
-      <button type="button" class="icon-btn" title="Hapus kategori (catatan lama tidak ikut berubah)" onclick="deleteKategori('${k.id}')"><i class="ph ph-trash"></i></button>
+      <span style="white-space:nowrap;">
+        <button type="button" class="icon-btn" title="Ubah nama kategori" onclick="startKategoriEdit('${k.id}')"><i class="ph ph-pencil-simple"></i></button>
+        <button type="button" class="icon-btn" title="Hapus kategori (catatan lama tidak ikut berubah)" onclick="deleteKategori('${k.id}')"><i class="ph ph-trash"></i></button>
+      </span>
     </div>`
     )
     .join("");
+  if (kategoriEditId) {
+    const el = document.getElementById("kategori-edit-input");
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  }
+}
+
+// Ubah nama kategori. Karena kategori disimpan sebagai TEKS di tiap catatan
+// pengeluaran (bukan referensi id), catatan lama yang memakai nama lama ikut
+// diganti supaya filter & laporan tetap menyatu -- dikerjakan dulu (per 400
+// dokumen), baru nama di daftar kategori diubah. Kalau proses terputus di tengah,
+// cukup ulangi: yang sudah berganti tidak terambil lagi. Catatan: salinan nama
+// kategori di riwayat pembayaran hutang lama (hanya teks keterangan di Buku Kas)
+// tidak ikut diganti.
+async function saveKategoriEdit(id) {
+  const item = pengKategoriList.find((k) => k.id === id);
+  const input = document.getElementById("kategori-edit-input");
+  if (!item || !input) return;
+  const baru = input.value.trim();
+  if (!baru) {
+    showToast("Nama kategori tidak boleh kosong.", "error");
+    return;
+  }
+  if (baru === item.nama) {
+    cancelKategoriEdit();
+    return;
+  }
+  if (pengKategoriList.some((k) => k.id !== id && k.nama.toLowerCase() === baru.toLowerCase())) {
+    showToast("Kategori dengan nama itu sudah ada.", "error");
+    return;
+  }
+  try {
+    const snap = await db.collection("pengeluaran").where("kategori", "==", item.nama).get();
+    const pesan =
+      snap.size > 0
+        ? `Ubah nama kategori "${item.nama}" menjadi "${baru}"? ${snap.size} catatan pengeluaran yang memakai kategori ini ikut diubah.`
+        : `Ubah nama kategori "${item.nama}" menjadi "${baru}"? Belum ada catatan pengeluaran yang memakainya.`;
+    if (!(await showConfirmModal(pesan, { okLabel: "Ya, Ubah" }))) return;
+    for (let i = 0; i < snap.docs.length; i += 400) {
+      const batch = db.batch();
+      snap.docs.slice(i, i + 400).forEach((d) => {
+        const x = d.data();
+        const upd = { kategori: baru };
+        // Dokumen LAMA (sebelum fitur Hutang Usaha) tidak punya paid_amount/status_bayar, sedangkan
+        // Firestore Rules mewajibkan keduanya ada pada dokumen hasil update -- isi sebagai lunas
+        // (persis arti default dokumen lama di seluruh aplikasi).
+        if (x.paid_amount === undefined) {
+          upd.paid_amount = Number(x.jumlah) || 0;
+          upd.status_bayar = computeStatusBayar(Number(x.jumlah) || 0, Number(x.jumlah) || 0);
+        }
+        batch.update(d.ref, upd);
+      });
+      await batch.commit();
+    }
+    await db.collection("kategori_pengeluaran").doc(id).update({ nama: baru });
+    kategoriEditId = null;
+    showToast("Kategori diubah.", "success");
+    applyPengeluaranFilter(); // tabel pengeluaran memuat nama kategori terbaru
+  } catch (err) {
+    showToast(friendlyFirebaseError(err), "error");
+  }
 }
 async function deleteKategori(id) {
   if (!(await showConfirmModal("Hapus kategori ini dari daftar pilihan? Catatan pengeluaran lama yang sudah memakai kategori ini TIDAK ikut berubah/hilang.", { okLabel: "Ya, Hapus", danger: true }))) return;

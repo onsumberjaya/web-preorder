@@ -305,10 +305,18 @@ service cloud.firestore {
     // (tanpa nominal) risikonya jauh lebih rendah daripada data /pengeluaran
     // itu sendiri, tapi tetap tidak ada gunanya dibuka untuk Karyawan yang
     // memang tidak punya akses ke halaman manapun yang memakainya.
+    //
+    // PERBAIKAN BUG: sebelumnya cuma ada satu `allow write` yang memeriksa
+    // request.resource.data.nama. Pada operasi HAPUS, request.resource bernilai
+    // null (dokumennya tidak ada lagi setelah operasi), jadi pemeriksaan itu error
+    // dan rule dianggap gagal -- akibatnya kategori TIDAK BISA dihapus oleh siapa
+    // pun (termasuk Owner). Sekarang tulis (create/update) dan hapus dipisah.
     match /kategori_pengeluaran/{kategoriId} {
       allow read: if isOwner() || isAdminKasir();
-      allow write: if (isOwner() || isAdminKasir())
+      allow create, update: if (isOwner() || isAdminKasir())
+        && request.resource.data.keys().hasOnly(['nama'])
         && request.resource.data.nama is string && request.resource.data.nama.size() > 0;
+      allow delete: if isOwner() || isAdminKasir();
     }
 
     // Daftar cabang: semua yang login DAN masih aktif boleh baca (dipakai

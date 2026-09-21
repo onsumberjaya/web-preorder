@@ -125,6 +125,7 @@ async function applyLkFilter() {
     lkPayments = paymentSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     lkPiutangData = null; // "Terapkan Filter" juga menyegarkan tab Piutang & Hutang (dimuat ulang saat tab dibuka)
     lkRingkasanPiutangTried = false;
+    lkDataStale = false; // muat ulang penuh: semua data periode sudah segar lagi
 
     switchLkTab(lkTab);
   } catch (err) {
@@ -162,7 +163,9 @@ async function loadLkArsipDihapus() {
             sampai = m[2];
           }
         }
-        return dari && sampai ? { dari, sampai, nama: x.nama_file } : null;
+        // rekap_bulanan = omzet/HPP/kas masuk per bulan yang disimpan saat backup (js/arsip.js);
+        // arsip lama (sebelum fitur ini) tidak punya -> null.
+        return dari && sampai ? { dari, sampai, nama: x.nama_file, rekap: x.rekap_bulanan || null } : null;
       })
       .filter(Boolean);
   } catch (e) {
@@ -173,7 +176,28 @@ function lkArsipBanner(dari, sampai) {
   const hit = lkArsipDihapus.filter((a) => (!sampai || a.dari <= sampai) && (!dari || a.sampai >= dari));
   if (hit.length === 0) return "";
   const rentang = hit.map((a) => `${escapeHtml(a.dari)} s/d ${escapeHtml(a.sampai)}`).join(", ");
-  return `<div class="alert alert-error" style="margin-bottom:16px;"><i class="ph-bold ph-warning"></i> Rentang ini mencakup pesanan yang sudah <strong>diarsipkan &amp; dihapus dari database</strong> (${rentang}). Omzet, kas masuk, dan piutang periode itu bisa tidak lengkap, sementara pengeluaran tetap tercatat -- jadi laba bisa tampak jauh lebih kecil atau rugi. Restore file backup di halaman Arsip PO kalau butuh angka lengkap.</div>`;
+  // Rekap per bulan (disimpan saat backup) untuk bulan-bulan yang beririsan dengan rentang ini.
+  const bulan = {};
+  hit.forEach((a) => {
+    if (!a.rekap) return;
+    Object.entries(a.rekap).forEach(([k, r]) => {
+      if ((dari && k < dari.slice(0, 7)) || (sampai && k > sampai.slice(0, 7))) return;
+      const b = (bulan[k] = bulan[k] || { pesanan: 0, omzet: 0, hpp: 0, kas_masuk: 0 });
+      b.pesanan += Number(r.pesanan) || 0;
+      b.omzet += Number(r.omzet) || 0;
+      b.hpp += Number(r.hpp) || 0;
+      b.kas_masuk += Number(r.kas_masuk) || 0;
+    });
+  });
+  const kunciBulan = Object.keys(bulan).sort();
+  const tanpaRekap = hit.some((a) => !a.rekap);
+  const tabelRekap = kunciBulan.length
+    ? `<div style="overflow-x:auto; margin-top:8px;"><table style="font-size:12px; background:var(--surface); border-radius:6px;"><thead><tr><th>Bulan</th><th style="text-align:right;">Pesanan</th><th style="text-align:right;">Omzet</th><th style="text-align:right;">HPP</th><th style="text-align:right;">Kas Masuk</th></tr></thead><tbody>${kunciBulan
+        .map((k) => `<tr><td>${escapeHtml(new Date(k + "-01T00:00:00").toLocaleDateString("id-ID", { month: "long", year: "numeric" }))}</td><td style="text-align:right;">${bulan[k].pesanan}</td><td style="text-align:right;">${formatRupiah(bulan[k].omzet)}</td><td style="text-align:right;">${formatRupiah(bulan[k].hpp)}</td><td style="text-align:right;">${formatRupiah(bulan[k].kas_masuk)}</td></tr>`)
+        .join("")}</tbody></table></div><div style="font-size:11.5px; margin-top:6px;">Rekap per bulan ini disimpan saat backup arsip dan <strong>tidak ikut dijumlahkan</strong> ke angka di laporan ini (kecuali di tab Tren).</div>`
+    : "";
+  const catatanLama = tanpaRekap ? `<div style="font-size:11.5px; margin-top:6px;">Ada arsip lama yang dibuat sebelum fitur rekap -- angkanya tidak tersimpan; restore file backup-nya kalau butuh.</div>` : "";
+  return `<div class="alert alert-error" style="margin-bottom:16px;"><i class="ph-bold ph-warning"></i> Rentang ini mencakup pesanan yang sudah <strong>diarsipkan &amp; dihapus dari database</strong> (${rentang}). Rincian transaksi dan piutang periode itu tidak lengkap, sementara pengeluaran tetap tercatat -- jadi laba bisa tampak jauh lebih kecil atau rugi. Restore file backup di halaman Arsip PO kalau butuh angka lengkap.${tabelRekap}${catatanLama}</div>`;
 }
 function lkArsipBannerFilter() {
   return lkArsipBanner(document.getElementById("lk-dari").value, document.getElementById("lk-sampai").value);
@@ -263,6 +287,7 @@ function renderLkKas() {
   const totalKeluar = lkKasKeluarItems().reduce((s, k) => s + (Number(k.keluar) || 0), 0);
 
   document.getElementById("lk-content").innerHTML = `
+    ${lkStaleBanner()}
     ${lkArsipBannerFilter()}
     ${
       lkPembayaranError
@@ -335,6 +360,7 @@ function renderLkLabaRugi() {
     .join("");
 
   document.getElementById("lk-content").innerHTML = `
+    ${lkStaleBanner()}
     ${lkArsipBannerFilter()}
     <div class="grid grid-3" style="margin-bottom:16px;">
       ${statCard("ph-trend-up", "Omzet (Penjualan)", formatRupiah(omzet))}
@@ -774,6 +800,7 @@ function renderLkRingkasan() {
   const adaUmur = d.piutangOk && d.jumlahPiutang > 0;
 
   container.innerHTML = `
+    ${lkStaleBanner()}
     ${lkArsipBannerFilter()}
     ${lkPembayaranError ? `<div class="alert alert-error" style="margin-bottom:16px;"><i class="ph-bold ph-warning"></i> Riwayat pembayaran pengeluaran gagal dimuat, jadi <strong>Kas Keluar bisa tidak lengkap</strong>: ${lkPembayaranError}</div>` : ""}
     ${lkRingkasanPiutangErr ? `<div class="alert alert-error" style="margin-bottom:16px;"><i class="ph-bold ph-warning"></i> Data Piutang & Hutang gagal dimuat: ${lkRingkasanPiutangErr}</div>` : ""}
@@ -859,6 +886,12 @@ function renderLkRingkasan() {
 // Piutang & Hutang ikut sinkron).
 let lkModalKey = null; // "order:<id>" / "hutang:<id>" -- mencegah render basi kalau modal sudah ditutup/diganti
 let lkModalDirty = false;
+let lkDataStale = false; // ada pembayaran baru dicatat lewat modal detail -- data periode (Buku Kas/Laba Rugi) belum memuatnya
+function lkStaleBanner() {
+  return lkDataStale
+    ? `<div class="alert alert-info" style="margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;"><span><i class="ph-bold ph-info"></i> Ada pembayaran yang baru dicatat -- angka di tab ini belum memuatnya.</span><button type="button" class="btn-secondary btn-sm" onclick="applyLkFilter()"><i class="ph-bold ph-arrow-clockwise"></i> Muat Ulang Laporan</button></div>`
+    : "";
+}
 
 function lkOpenModalShell(key) {
   lkModalKey = key;
@@ -869,8 +902,15 @@ function closeLkDetail() {
   document.getElementById("lk-detail-modal").style.display = "none";
   lkModalKey = null;
   if (lkModalDirty) {
+    // HEMAT BACA (tier gratis: 50 ribu baca/hari): dulu seluruh laporan (semua pesanan +
+    // pembayaran periode) dibaca ulang tiap modal ditutup. Sekarang cuma tab Piutang &
+    // Hutang yang dimuat ulang (2 query kecil: yang belum lunas saja); tab lain diberi
+    // tanda "belum memuat pembayaran baru" + tombol Muat Ulang Laporan.
     lkModalDirty = false;
-    applyLkFilter();
+    lkDataStale = true;
+    lkPiutangData = null;
+    lkRingkasanPiutangTried = false;
+    renderLkContent();
   }
 }
 
@@ -1158,6 +1198,21 @@ async function loadLkTrenData() {
     if (idx !== -1) monthly[idx].biaya += Number(e.jumlah) || 0;
     biayaPerKategoriTotal[e.kategori] = (biayaPerKategoriTotal[e.kategori] || 0) + (Number(e.jumlah) || 0);
   });
+  // Pesanan yang sudah diarsipkan & DIHAPUS dari database tidak terbaca query di atas --
+  // tambahkan rekap bulanannya (disimpan di arsip_log saat backup) supaya omzet & HPP
+  // bulan-bulan itu tetap benar. Arsip yang sudah direstore (status "utuh") tidak
+  // termasuk di lkArsipDihapus, jadi tidak ada penghitungan ganda.
+  monthly.forEach((m) => {
+    const kunci = `${m.year}-${String(m.month + 1).padStart(2, "0")}`;
+    lkArsipDihapus.forEach((a) => {
+      const r = a.rekap && a.rekap[kunci];
+      if (!r) return;
+      m.omzet += Number(r.omzet) || 0;
+      m.hpp += Number(r.hpp) || 0;
+      m.hppKurang += Number(r.hpp_kurang) || 0;
+      m.dariArsip = (m.dariArsip || 0) + (Number(r.pesanan) || 0);
+    });
+  });
   monthly.forEach((m) => (m.laba = m.omzet - m.hpp - m.biaya));
 
   lkTrenData = { monthly, biayaPerKategoriTotal, rangeDari: localYmd(rangeStart), rangeSampai: localYmd(now) };
@@ -1179,9 +1234,14 @@ function renderLkTren() {
 
   const { monthly, biayaPerKategoriTotal } = lkTrenData;
   const bulanHppKurang = monthly.filter((m) => m.hppKurang > 0);
+  const bulanArsip = monthly.filter((m) => m.dariArsip > 0);
+  const arsipNote = bulanArsip.length
+    ? `<p style="font-size:12px; color:var(--gray-500); margin:8px 0 0;"><i class="ph-bold ph-archive"></i> ${bulanArsip.map((m) => `${m.label}: ${m.dariArsip} pesanan`).join(", ")} sudah diarsipkan &amp; dihapus dari database -- omzet &amp; HPP bulan itu diambil dari rekap yang disimpan saat backup.</p>`
+    : "";
   const trenNote = bulanHppKurang.length
     ? `<p style="font-size:12px; color:var(--gray-500); margin:8px 0 0;"><i class="ph-bold ph-warning" style="color:#f59e0b;"></i> Titik oranye = bulan yang ada pesanan dengan HPP belum lengkap (${bulanHppKurang.map((m) => `${m.label}: ${m.hppKurang} pesanan`).join(", ")}) -- Laba bulan itu kemungkinan lebih besar dari sebenarnya.</p>`
     : "";
+  const trenNoteSemua = trenNote + arsipNote;
   const iniBulan = monthly[monthly.length - 1];
   const bulanLalu = monthly[monthly.length - 2];
   const pctChange = (now, before) => (before === 0 ? (now === 0 ? 0 : 100) : Math.round(((now - before) / Math.abs(before)) * 100));
@@ -1199,6 +1259,7 @@ function renderLkTren() {
     `<span style="font-size:11.5px; font-weight:700; color:${pct >= 0 ? "var(--brand-700)" : "var(--red-600)"};"><i class="ph-bold ${pct >= 0 ? "ph-trend-up" : "ph-trend-down"}"></i> ${pct >= 0 ? "+" : ""}${pct}%</span>`;
 
   container.innerHTML = `
+    ${lkStaleBanner()}
     ${lkArsipBanner(lkTrenData.rangeDari, lkTrenData.rangeSampai)}
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:2px;">
@@ -1206,7 +1267,7 @@ function renderLkTren() {
         <button type="button" class="btn-secondary btn-sm" onclick="lkTrenData = null; renderLkTren();"><i class="ph-bold ph-arrow-clockwise"></i> Muat Ulang</button>
       </div>
       <div style="height:260px; margin-top:12px;"><canvas id="lk-tren-chart"></canvas></div>
-      ${trenNote}
+      ${trenNoteSemua}
     </div>
     <div class="grid grid-2" style="margin-bottom:16px;">
       <div class="card">
@@ -1328,7 +1389,8 @@ function lkTrenExportData() {
     komposisi: Object.entries(biayaPerKategoriTotal),
     note:
       "Laba Bersih = Omzet - HPP - Biaya Operasional. Pesanan lama yang belum punya Harga Modal dihitung HPP Rp0, jadi Laba bisa lebih besar dari yang sebenarnya." +
-      (bulanKurang.length ? ` * = bulan dengan HPP belum lengkap (${bulanKurang.map((m) => `${m.label}: ${m.hppKurang} pesanan`).join(", ")}).` : ""),
+      (bulanKurang.length ? ` * = bulan dengan HPP belum lengkap (${bulanKurang.map((m) => `${m.label}: ${m.hppKurang} pesanan`).join(", ")}).` : "") +
+      (monthly.some((m) => m.dariArsip > 0) ? ` Bulan ${monthly.filter((m) => m.dariArsip > 0).map((m) => m.label).join(", ")} termasuk rekap pesanan yang sudah diarsipkan & dihapus (dari rekap saat backup).` : ""),
   };
 }
 
