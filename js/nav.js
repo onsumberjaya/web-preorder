@@ -37,7 +37,7 @@ function renderSidebar(profile) {
         <div class="logo"><i class="ph-bold ph-plant"></i></div>
         <div>
           <h1>TOKO SUMBER JAYA</h1>
-          <p class="app-meta">Sistem Manajemen Pesanan Preorder <a href="tentang.html" class="app-version" style="text-decoration:none;">v1.6</a></p>
+          <p class="app-meta">Sistem Manajemen Pesanan Preorder <a href="tentang.html" class="app-version" style="text-decoration:none;">v1.7</a></p>
         </div>
       </div>
       <div class="sidebar-nav">${navHtml}</div>

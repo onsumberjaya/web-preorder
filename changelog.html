@@ -57,9 +57,19 @@
       <div class="card">
         <div class="changelog-entry">
           <div class="changelog-version-row">
-            <h2>Versi 1.6</h2>
+            <h2>Versi 1.7</h2>
             <span class="changelog-badge-new">Terbaru</span>
           </div>
+          <ul class="changelog-list">
+            <li><strong>Dashboard lebih lengkap.</strong> Baris kartu baru: Uang Terkumpul (beserta persentasenya), Sisa Tagihan, Rata-rata per Pesanan, Siap Diambil (sudah lunas tapi belum diambil), dan Pembeli Berulang.</li>
+            <li>Grafik baru di Dashboard: Status Pembayaran, Status Pengambilan, Pesanan per Hari dalam Seminggu, Unit per Gelombang, Omzet per Produk, Omzet per Cabang (Owner/Admin Kasir), dan Umur Tagihan Belum Lunas.</li>
+            <li>Daftar baru di Dashboard: <strong>Perlu Ditagih</strong>, <strong>Siap Diambil</strong>, dan <strong>Pembeli Teratas</strong>. Nama pembeli bisa diklik untuk langsung membuka pesanannya di Daftar Pesanan.</li>
+            <li>Ikon mata di kartu Total Uang sekarang menyembunyikan <strong>semua</strong> angka uang di Dashboard (kartu, daftar, dan grafik), bukan hanya Total Uang. Semua tambahan ini dihitung dari data yang sudah dimuat, jadi tidak menambah pemakaian kuota baca database.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.6</h2></div>
           <ul class="changelog-list">
             <li><strong>Pengamanan data transaksi</strong> di sisi database: nomor nota tidak bisa dilompatkan, setiap pembayaran wajib terhubung ke pesanan yang benar-benar ada, dan kenaikan jumlah yang sudah dibayar wajib tercatat sebagai riwayat pembayaran. Perubahan data pengeluaran dan riwayat arsip juga dibatasi hanya pada kolom yang memang dipakai aplikasi.</li>
             <li><strong>Rekap bulanan tersimpan otomatis saat Backup Arsip</strong> (jumlah pesanan, omzet, HPP, dan kas masuk per bulan). Rekap ini tampil di peringatan Laporan Keuangan dan ikut dihitung di tab Tren, jadi omzet bulan-bulan lama tidak hilang setelah pesanannya dihapus dari database.</li>
