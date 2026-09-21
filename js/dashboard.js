@@ -15,6 +15,7 @@ let dashMetrik = "unit"; // "unit" atau "uang" -- toggle di grafik "Pesanan Masu
 // mode/sidebar yang sudah ada di aplikasi ini.
 let dashMoneyHidden = localStorage.getItem("dashboardMoneyHidden") === "1";
 let dashHasRendered = false; // sudah pernah render (data pesanan sudah termuat)
+let dashPrefs = { hidden: [], statistik: false }; // pengaturan tampilan per akun (lihat js/dashboard-prefs.js)
 let dashLastTotalUang = 0; // disimpan supaya toggle bisa langsung ganti teks tanpa perlu render ulang seluruh dashboard
 
 // Chart.js kadang tidak langsung menyesuaikan lebar canvas saat browser
@@ -266,6 +267,8 @@ function reloadDashboardForDateChange() {
 
 window.onAuthReady = async function (profile) {
   dashProfile = profile;
+  dashPrefs = loadDashPrefs(profile.uid); // pengaturan Kelola Tampilan (bagian yang disembunyikan, statistik bulanan)
+  updateStatistikToggleButton();
   loadDashboardData(profile);
 
   document.getElementById("filter-periode").addEventListener("change", (e) => {
@@ -403,6 +406,7 @@ function buildProductColorMap(names) {
 function renderDashboard() {
   const orders = filteredDashOrders();
   const ins = buildDashInsights(orders); // kartu & grafik tambahan (lihat bagian "Insight tambahan" di bawah)
+  const stat = buildStatistikSection(); // Statistik Bulanan (opsional, bawaan nonaktif) -- js/dashboard-statistik.js
   const jumlahNota = orders.length;
   const totalUnitProduk = orders.reduce(
     (sum, o) => sum + (o.items || []).reduce((s, it) => s + (Number(it.jumlah) || 0), 0),
@@ -473,10 +477,10 @@ function renderDashboard() {
   if (adaTanpaCabang) cabangColumns.push({ id: "__tanpa_cabang__", nama: "Tanpa Cabang" });
 
   const container = document.getElementById("dashboard-content");
-  container.innerHTML = `
+  const htmlDashboard = `
     <div class="content-fade-in">
     ${jumlahJanggal > 0 ? `
-    <div class="card" style="margin-bottom:16px; background:#fef2f2; border-color:#fecaca;">
+    <div class="card" data-dash="kpi-anomali" style="margin-bottom:16px; background:#fef2f2; border-color:#fecaca;">
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;">
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="card-heading-icon" style="background:#fee2e2; color:#b91c1c;"><i class="ph-bold ph-warning"></i></span>
@@ -489,15 +493,15 @@ function renderDashboard() {
       </div>
     </div>` : ""}
     <div class="grid grid-5" style="margin-bottom:20px;">
-      <div class="stat-card brand">
+      <div class="stat-card brand" data-dash="kpi-pembeli">
         <div class="stat-icon"><i class="ph-bold ph-users-three"></i></div>
         <div class="stat-body"><div class="stat-label">Jumlah Pembeli</div><div class="stat-value">${pembeliUnik}</div></div>
       </div>
-      <div class="stat-card brand">
+      <div class="stat-card brand" data-dash="kpi-unit">
         <div class="stat-icon"><i class="ph-bold ph-package"></i></div>
         <div class="stat-body"><div class="stat-label">Total Pesanan (Unit Produk)</div><div class="stat-value">${totalUnitProduk}</div><div style="font-size:11px; color:var(--brand-100); margin-top:2px;">dari ${jumlahNota} nota</div></div>
       </div>
-      <div class="stat-card brand">
+      <div class="stat-card brand" data-dash="kpi-uang">
         <div class="stat-icon"><i class="ph-bold ph-wallet"></i></div>
         <div class="stat-body">
           <div class="stat-label" style="display:flex; align-items:center; gap:6px;">
@@ -509,11 +513,11 @@ function renderDashboard() {
           <div class="stat-value" style="font-size:16px;" id="dash-total-uang-value">${dashMoneyHidden ? "********" : formatRupiah(totalUang)}</div>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-dash="kpi-lunas">
         <div class="stat-icon"><i class="ph-bold ph-check-circle"></i></div>
         <div class="stat-body"><div class="stat-label">Lunas / Belum Lunas</div><div class="stat-value" style="font-size:16px;"><span style="color:var(--brand-700);">${jumlahLunas}</span> / <span style="color:var(--red-600);">${jumlahBelumLunas}</span></div></div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" data-dash="kpi-diambil">
         <div class="stat-icon"><i class="ph-bold ph-basket"></i></div>
         <div class="stat-body"><div class="stat-label">Sudah Diambil / Belum Diambil</div><div class="stat-value" style="font-size:16px;"><span style="color:var(--brand-700);">${jumlahDiambil}</span> / <span style="color:var(--red-600);">${jumlahBelumDiambil}</span></div></div>
       </div>
@@ -521,7 +525,7 @@ function renderDashboard() {
 
     ${ins.kpiHtml}
 
-    <div class="card" style="margin-top:20px;">
+    <div class="card" data-dash="chart-waktu" style="margin-top:20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
         <div class="card-heading"><span class="card-heading-icon"><i class="ph-bold ph-trend-up"></i></span><h3>Pesanan Masuk</h3></div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -541,19 +545,21 @@ function renderDashboard() {
     </div>
 
     <div class="grid grid-2 chart-card-row" style="margin-top:20px;">
-      <div class="card chart-card">
+      <div class="card chart-card" data-dash="chart-produk">
         <div class="card-heading" style="margin-bottom:14px;"><span class="card-heading-icon"><i class="ph-bold ph-chart-bar"></i></span><h3>Jumlah Pesanan per Produk</h3></div>
         <div class="chart-box" style="height:280px;"><canvas id="chart-produk"></canvas></div>
       </div>
-      <div class="card chart-card">
+      <div class="card chart-card" data-dash="chart-alamat">
         <div class="card-heading" style="margin-bottom:14px;"><span class="card-heading-icon"><i class="ph-bold ph-map-pin"></i></span><h3>Jumlah Unit Terjual per Alamat (Top 10)</h3></div>
         <div class="chart-box" style="height:280px;"><canvas id="chart-alamat"></canvas></div>
       </div>
     </div>
 
+    ${stat.html}
+
     ${ins.cardsHtml}
 
-    <div class="card" style="margin-top:20px;">
+    <div class="card" data-dash="tabel-produk" style="margin-top:20px;">
       <div class="card-heading" style="margin-bottom:14px;"><span class="card-heading-icon"><i class="ph-bold ph-list-numbers"></i></span><h3>Detail Total per Produk${cabangColumns.length > 1 ? " per Cabang" : ""}</h3></div>
       ${
         pakaiRekapAllTime
@@ -591,280 +597,291 @@ function renderDashboard() {
     </div>
     </div>
   `;
+  // Bagian yang disembunyikan lewat "Kelola Tampilan" dibuang dari HTML SEBELUM dipasang,
+  // jadi canvas & grafiknya tidak dirender sama sekali (lihat stripDashHidden di dashboard-prefs.js).
+  container.innerHTML = stripDashHidden(htmlDashboard, dashPrefs.hidden);
 
   const produkNamesUrut = Object.keys(perProduk).sort();
   const produkColorMap = buildProductColorMap(produkNamesUrut);
-  drawTimeSeriesChart("chart-waktu", buildTimeSeries(orders, dashGranularitas), produkNamesUrut, produkColorMap, dashMetrik);
-  document.getElementById("chart-granularitas").addEventListener("change", (e) => {
-    dashGranularitas = e.target.value;
-    renderDashboard();
-  });
-  document.getElementById("chart-metrik").addEventListener("change", (e) => {
-    dashMetrik = e.target.value;
-    renderDashboard();
-  });
+  if (document.getElementById("chart-waktu")) {
+    drawTimeSeriesChart("chart-waktu", buildTimeSeries(orders, dashGranularitas), produkNamesUrut, produkColorMap, dashMetrik);
+    document.getElementById("chart-granularitas").addEventListener("change", (e) => {
+      dashGranularitas = e.target.value;
+      renderDashboard();
+    });
+    document.getElementById("chart-metrik").addEventListener("change", (e) => {
+      dashMetrik = e.target.value;
+      renderDashboard();
+    });
+  }
 
-  drawBarChart("chart-produk", perProduk, "chartProduk", "#16a34a");
-  const topAlamat = Object.entries(perAlamat)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .reverse();
-  drawBarChart("chart-alamat", Object.fromEntries(topAlamat), "chartAlamat", "#0ea5e9", true);
+  if (document.getElementById("chart-produk")) drawBarChart("chart-produk", perProduk, "chartProduk", "#16a34a");
+  if (document.getElementById("chart-alamat")) {
+    const topAlamat = Object.entries(perAlamat)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .reverse();
+    drawBarChart("chart-alamat", Object.fromEntries(topAlamat), "chartAlamat", "#0ea5e9", true);
+  }
   ins.draw();
+  stat.draw();
   dashHasRendered = true;
 }
 
-
-// ---------- Insight tambahan (kartu, grafik, dan daftar) ----------
-// Semuanya dihitung dari `orders` yang SUDAH ada di memori (hasil query periode/cabang di
-// loadDashboardData) -- TIDAK menambah bacaan Firestore sama sekali, jadi aman untuk
-// kuota tier gratis. Karyawan cabang otomatis hanya melihat data cabangnya sendiri karena
-// query pesanan mereka memang sudah dibatasi (lihat komentar di loadDashboardData).
-let dashExtraCharts = [];
-const DASH_PALET = ["#16a34a", "#0ea5e9", "#f59e0b", "#8b5cf6", "#14b8a6", "#ec4899", "#dc2626", "#64748b"];
-
-function dashRp(n) {
-  return dashMoneyHidden ? "********" : formatRupiah(n);
-}
-function dashDestroyExtraCharts() {
-  dashExtraCharts.forEach((c) => c.destroy());
-  dashExtraCharts = [];
-}
-function dashTanggalObj(o) {
-  return o.tanggal && typeof o.tanggal.toDate === "function" ? o.tanggal.toDate() : new Date(o.tanggal);
-}
-function dashUmurHari(o) {
-  return Math.max(0, Math.floor((Date.now() - dashTanggalObj(o).getTime()) / 86400000));
-}
-function dashSisa(o) {
-  return Math.max(0, (Number(o.total) || 0) - (Number(o.paid_amount) || 0));
-}
-function dashSingkat(n) {
-  return n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".", ",").replace(",0", "")}jt` : n >= 1e3 ? `${Math.round(n / 1e3)}rb` : String(n);
-}
-
-function dashStat(icon, label, value, sub) {
-  return `
-      <div class="stat-card">
-        <div class="stat-icon"><i class="ph-bold ${icon}"></i></div>
-        <div class="stat-body">
-          <div class="stat-label">${label}</div>
-          <div class="stat-value" style="font-size:16px;">${value}</div>
-          ${sub ? `<div style="font-size:11px; color:var(--gray-500); margin-top:2px;">${sub}</div>` : ""}
-        </div>
-      </div>`;
-}
-function dashChartCard(id, icon, judul, ada, catatan, pesanKosong) {
-  return `
-      <div class="card chart-card">
-        <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
-        ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
-        ${ada ? `<div class="chart-box" style="height:260px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">${pesanKosong || "Belum ada data."}</p>`}
-      </div>`;
-}
-function dashListCard(icon, judul, catatan, headHtml, rowsHtml) {
-  return `
-      <div class="card">
-        <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
-        ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
-        ${rowsHtml ? `<div class="table-wrap"><table class="table"><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">Tidak ada.</p>`}
-      </div>`;
-}
-
-function buildDashInsights(orders) {
-  dashDestroyExtraCharts();
-  const num = (v) => Number(v) || 0;
-  const semuaCabang = canAccessAllBranches(dashProfile);
-  const cabangNama = {};
-  allCabangDash.forEach((c) => (cabangNama[c.id] = c.nama));
-
-  const totalUang = orders.reduce((s, o) => s + num(o.total), 0);
-  const terkumpul = orders.reduce((s, o) => s + Math.min(num(o.paid_amount), num(o.total)), 0);
-  const belumLunas = orders.filter((o) => o.status_bayar !== "lunas");
-  const totalSisa = orders.reduce((s, o) => s + dashSisa(o), 0);
-  const rataRata = orders.length ? totalUang / orders.length : 0;
-  const persenTerkumpul = totalUang > 0 ? Math.round((terkumpul / totalUang) * 100) : 0;
-
-  const statusBayar = { lunas: 0, cicilan: 0, belum_bayar: 0 };
-  const ambil = { sudah: 0, lunasBelum: 0, belumLunasBelum: 0 };
-  const siapDiambil = [];
-  orders.forEach((o) => {
-    if (statusBayar[o.status_bayar] !== undefined) statusBayar[o.status_bayar] += 1;
-    if (o.is_diambil) ambil.sudah += 1;
-    else if (o.status_bayar === "lunas") {
-      ambil.lunasBelum += 1;
-      siapDiambil.push(o);
-    } else ambil.belumLunasBelum += 1;
-  });
-
-  // Pembeli: dikelompokkan menurut nama (huruf besar/kecil & spasi diabaikan)
-  const pembeli = {};
-  orders.forEach((o) => {
-    const kunci = String(o.nama_pembeli || "").trim().toLowerCase() || "(tanpa nama)";
-    if (!pembeli[kunci]) pembeli[kunci] = { nama: (o.nama_pembeli || "").trim() || "(tanpa nama)", pesanan: 0, unit: 0, total: 0 };
-    const b = pembeli[kunci];
-    b.pesanan += 1;
-    b.total += num(o.total);
-    b.unit += (o.items || []).reduce((s, it) => s + num(it.jumlah), 0);
-  });
-  const pembeliArr = Object.values(pembeli);
-  const berulang = pembeliArr.filter((b) => b.pesanan >= 2).length;
-
-  const hariMinggu = [0, 0, 0, 0, 0, 0, 0]; // Senin..Minggu (jumlah nota)
-  const gelombang = {};
-  const omzetProduk = {};
-  const omzetCabang = {};
-  orders.forEach((o) => {
-    hariMinggu[(dashTanggalObj(o).getDay() + 6) % 7] += 1;
-    const cab = !o.cabang_id ? "Tanpa Cabang" : cabangNama[o.cabang_id] || "Cabang (dihapus)";
-    omzetCabang[cab] = (omzetCabang[cab] || 0) + num(o.total);
-    (o.items || []).forEach((it) => {
-      const g = resolveWaveLabelDash(it) || "(tanpa gelombang)";
-      gelombang[g] = (gelombang[g] || 0) + num(it.jumlah);
-      omzetProduk[it.product_name] = (omzetProduk[it.product_name] || 0) + num(it.subtotal);
-    });
-  });
-
-  // Umur tagihan (dari tanggal pesanan) -- hanya yang belum lunas di periode ini
-  const umur = [
-    { label: "0-7 hari", sisa: 0 },
-    { label: "8-14 hari", sisa: 0 },
-    { label: "15-30 hari", sisa: 0 },
-    { label: "> 30 hari", sisa: 0 },
-  ];
-  belumLunas.forEach((o) => {
-    const u = dashUmurHari(o);
-    umur[u <= 7 ? 0 : u <= 14 ? 1 : u <= 30 ? 2 : 3].sisa += dashSisa(o);
-  });
-
-  // ---- kartu angka (baris kedua) ----
-  const kpiHtml = `
-    <div class="grid grid-5" style="margin-top:0; margin-bottom:20px;">
-      ${dashStat("ph-hand-coins", "Uang Terkumpul", dashRp(terkumpul), `${persenTerkumpul}% dari total pesanan`)}
-      ${dashStat("ph-hourglass-medium", "Sisa Tagihan", dashRp(totalSisa), `${belumLunas.length} pesanan belum lunas`)}
-      ${dashStat("ph-receipt", "Rata-rata per Pesanan", dashRp(rataRata), `dari ${orders.length} pesanan`)}
-      ${dashStat("ph-package", "Siap Diambil", String(ambil.lunasBelum), "lunas, menunggu pembeli")}
-      ${dashStat("ph-arrows-clockwise", "Pembeli Berulang", String(berulang), `pesan 2x atau lebih, dari ${pembeliArr.length} pembeli`)}
-    </div>`;
-
-  // ---- kartu grafik & daftar ----
-  const adaOrders = orders.length > 0;
-  const pesanUangSembunyi = "Angka uang disembunyikan (klik ikon mata di kartu Total Uang untuk menampilkan).";
-  const gelombangUrut = Object.entries(gelombang).sort((a, b) => b[1] - a[1]).slice(0, 10);
-  const produkUangUrut = Object.entries(omzetProduk).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const cabangUrut = Object.entries(omzetCabang).sort((a, b) => b[1] - a[1]);
-  const adaTagihan = belumLunas.length > 0;
-
-  const cards = [];
-  cards.push(dashChartCard("dx-bayar", "ph-check-circle", "Status Pembayaran", adaOrders, "Jumlah pesanan menurut status bayarnya."));
-  cards.push(dashChartCard("dx-ambil", "ph-basket", "Status Pengambilan", adaOrders, "Sudah diambil, siap diambil (lunas), dan yang masih menunggu pelunasan."));
-  cards.push(dashChartCard("dx-hari", "ph-calendar-blank", "Pesanan per Hari dalam Seminggu", adaOrders, "Kapan pesanan paling ramai masuk."));
-  cards.push(dashChartCard("dx-gelombang", "ph-stack", "Unit per Gelombang (Top 10)", gelombangUrut.length > 0, "Sebaran unit pesanan menurut gelombang."));
-  cards.push(dashChartCard("dx-produk-uang", "ph-coins", "Omzet per Produk (Top 8)", !dashMoneyHidden && produkUangUrut.length > 0, "Produk dengan nilai penjualan terbesar.", dashMoneyHidden ? pesanUangSembunyi : ""));
-  if (semuaCabang && cabangUrut.length > 1) {
-    cards.push(dashChartCard("dx-cabang", "ph-storefront", "Omzet per Cabang", !dashMoneyHidden, "Kontribusi tiap cabang terhadap total pesanan.", pesanUangSembunyi));
-  }
-  cards.push(dashChartCard("dx-umur", "ph-hourglass-medium", "Umur Tagihan Belum Lunas", !dashMoneyHidden && adaTagihan, "Sisa tagihan menurut umur pesanan -- makin lama makin perlu ditagih.", dashMoneyHidden ? pesanUangSembunyi : "Tidak ada tagihan belum lunas di periode ini."));
-
-  const tagihRows = [...belumLunas]
-    .sort((a, b) => dashTanggalObj(a) - dashTanggalObj(b))
-    .slice(0, 8)
-    .map(
-      (o) => `<tr><td><a href="pesanan.html?cari=${encodeURIComponent(o.nama_pembeli || "")}">${escapeHtml(o.nama_pembeli || "-")}</a></td><td style="text-align:center;">${dashUmurHari(o)} hr</td><td style="text-align:right;">${dashRp(dashSisa(o))}</td></tr>`
-    )
-    .join("");
-  cards.push(
-    dashListCard(
-      "ph-bell-ringing",
-      "Perlu Ditagih",
-      `Pesanan belum lunas yang paling lama di periode ini.${semuaCabang ? ' Semua piutang ada di <a href="laporan-keuangan.html">Laporan Keuangan</a>.' : ""}`,
-      `<th>Pembeli</th><th style="text-align:center;">Umur</th><th style="text-align:right;">Sisa</th>`,
-      tagihRows
-    )
-  );
-  const siapRows = [...siapDiambil]
-    .sort((a, b) => dashTanggalObj(a) - dashTanggalObj(b))
-    .slice(0, 8)
-    .map(
-      (o) => `<tr><td><a href="pesanan.html?cari=${encodeURIComponent(o.nama_pembeli || "")}">${escapeHtml(o.nama_pembeli || "-")}</a></td><td style="text-align:center;">${dashUmurHari(o)} hr</td><td style="text-align:center;">${(o.items || []).reduce((s, it) => s + num(it.jumlah), 0)}</td></tr>`
-    )
-    .join("");
-  cards.push(
-    dashListCard(
-      "ph-package",
-      "Siap Diambil",
-      "Sudah lunas tapi belum diambil pembeli -- yang paling lama menunggu di atas.",
-      `<th>Pembeli</th><th style="text-align:center;">Menunggu</th><th style="text-align:center;">Unit</th>`,
-      siapRows
-    )
-  );
-  const topPembeliRows = [...pembeliArr]
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8)
-    .map(
-      (b) => `<tr><td>${escapeHtml(b.nama)}</td><td style="text-align:center;">${b.pesanan}</td><td style="text-align:center;">${b.unit}</td><td style="text-align:right;">${dashRp(b.total)}</td></tr>`
-    )
-    .join("");
-  cards.push(
-    dashListCard(
-      "ph-trophy",
-      "Pembeli Teratas",
-      "Menurut total nilai pesanan di periode ini.",
-      `<th>Pembeli</th><th style="text-align:center;">Pesanan</th><th style="text-align:center;">Unit</th><th style="text-align:right;">Total</th>`,
-      topPembeliRows
-    )
-  );
-
-  const cardsHtml = `
-    <div class="grid grid-2 chart-card-row" style="margin-top:20px;">${cards.join("")}
-    </div>`;
-
-  // ---- gambar grafik (dipanggil setelah HTML dipasang ke halaman) ----
-  const draw = () => {
-    if (typeof Chart === "undefined") return;
-    const bikin = (id, cfg) => {
-      const el = document.getElementById(id);
-      if (el) dashExtraCharts.push(new Chart(el, cfg));
-    };
-    const dasar = { responsive: true, maintainAspectRatio: false };
-    const donat = (id, labels, data, warna, satuan) =>
-      bikin(id, {
-        type: "doughnut",
-        data: { labels, datasets: [{ data, backgroundColor: warna, borderWidth: 1 }] },
-        options: { ...dasar, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: { callbacks: { label: (c) => (satuan === "rp" ? `${c.label}: ${formatRupiah(c.parsed)}` : `${c.label}: ${c.parsed} pesanan`) } } } },
-      });
-    donat("dx-bayar", ["Lunas", "Bayar Sebagian", "Belum Bayar"], [statusBayar.lunas, statusBayar.cicilan, statusBayar.belum_bayar], ["#16a34a", "#f59e0b", "#dc2626"]);
-    donat("dx-ambil", ["Sudah Diambil", "Lunas, Belum Diambil", "Belum Lunas, Belum Diambil"], [ambil.sudah, ambil.lunasBelum, ambil.belumLunasBelum], ["#16a34a", "#0ea5e9", "#f59e0b"]);
-    bikin("dx-hari", {
-      type: "bar",
-      data: { labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"], datasets: [{ label: "Pesanan", data: hariMinggu, backgroundColor: "#8b5cf6", borderRadius: 6 }] },
-      options: { ...dasar, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
-    });
-    bikin("dx-gelombang", {
-      type: "bar",
-      data: { labels: gelombangUrut.map((g) => g[0]), datasets: [{ label: "Unit", data: gelombangUrut.map((g) => g[1]), backgroundColor: "#14b8a6", borderRadius: 6 }] },
-      options: { ...dasar, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } },
-    });
-    if (!dashMoneyHidden) {
-      bikin("dx-produk-uang", {
-        type: "bar",
-        data: { labels: produkUangUrut.map((p) => (p[0].length > 24 ? p[0].slice(0, 23) + "…" : p[0])), datasets: [{ label: "Omzet", data: produkUangUrut.map((p) => p[1]), backgroundColor: "#16a34a", borderRadius: 6 }] },
-        options: { ...dasar, indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => formatRupiah(c.parsed.x) } } }, scales: { x: { beginAtZero: true, ticks: { callback: (v) => dashSingkat(v) } } } },
-      });
-      if (semuaCabang && cabangUrut.length > 1) donat("dx-cabang", cabangUrut.map((c) => c[0]), cabangUrut.map((c) => c[1]), DASH_PALET, "rp");
-      if (adaTagihan) {
-        bikin("dx-umur", {
-          type: "bar",
-          data: { labels: umur.map((u) => u.label), datasets: [{ label: "Sisa tagihan", data: umur.map((u) => u.sisa), backgroundColor: ["#16a34a", "#f59e0b", "#f97316", "#dc2626"], borderRadius: 6 }] },
-          options: { ...dasar, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => formatRupiah(c.parsed.y) } } }, scales: { y: { beginAtZero: true, ticks: { callback: (v) => dashSingkat(v) } } } },
-        });
-      }
-    }
-  };
-
-  return { kpiHtml, cardsHtml, draw };
-}
-
+
+// ---------- Insight tambahan (kartu, grafik, dan daftar) ----------
+// Semuanya dihitung dari `orders` yang SUDAH ada di memori (hasil query periode/cabang di
+// loadDashboardData) -- TIDAK menambah bacaan Firestore sama sekali, jadi aman untuk
+// kuota tier gratis. Karyawan cabang otomatis hanya melihat data cabangnya sendiri karena
+// query pesanan mereka memang sudah dibatasi (lihat komentar di loadDashboardData).
+let dashExtraCharts = [];
+const DASH_PALET = ["#16a34a", "#0ea5e9", "#f59e0b", "#8b5cf6", "#14b8a6", "#ec4899", "#dc2626", "#64748b"];
+
+function dashRp(n) {
+  return dashMoneyHidden ? "********" : formatRupiah(n);
+}
+function dashDestroyExtraCharts() {
+  dashExtraCharts.forEach((c) => c.destroy());
+  dashExtraCharts = [];
+}
+function dashTanggalObj(o) {
+  return o.tanggal && typeof o.tanggal.toDate === "function" ? o.tanggal.toDate() : new Date(o.tanggal);
+}
+function dashUmurHari(o) {
+  return Math.max(0, Math.floor((Date.now() - dashTanggalObj(o).getTime()) / 86400000));
+}
+function dashSisa(o) {
+  return Math.max(0, (Number(o.total) || 0) - (Number(o.paid_amount) || 0));
+}
+function dashSingkat(n) {
+  return n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".", ",").replace(",0", "")}jt` : n >= 1e3 ? `${Math.round(n / 1e3)}rb` : String(n);
+}
+
+function dashStat(key, icon, label, value, sub) {
+  return `
+      <div class="stat-card" data-dash="${key}">
+        <div class="stat-icon"><i class="ph-bold ${icon}"></i></div>
+        <div class="stat-body">
+          <div class="stat-label">${label}</div>
+          <div class="stat-value" style="font-size:16px;">${value}</div>
+          ${sub ? `<div style="font-size:11px; color:var(--gray-500); margin-top:2px;">${sub}</div>` : ""}
+        </div>
+      </div>`;
+}
+function dashChartCard(id, icon, judul, ada, catatan, pesanKosong) {
+  return `
+      <div class="card chart-card" data-dash="${id}">
+        <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
+        ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
+        ${ada ? `<div class="chart-box" style="height:260px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">${pesanKosong || "Belum ada data."}</p>`}
+      </div>`;
+}
+function dashListCard(key, icon, judul, catatan, headHtml, rowsHtml) {
+  return `
+      <div class="card" data-dash="${key}">
+        <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
+        ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
+        ${rowsHtml ? `<div class="table-wrap"><table class="table"><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">Tidak ada.</p>`}
+      </div>`;
+}
+
+function buildDashInsights(orders) {
+  dashDestroyExtraCharts();
+  const num = (v) => Number(v) || 0;
+  const semuaCabang = canAccessAllBranches(dashProfile);
+  const cabangNama = {};
+  allCabangDash.forEach((c) => (cabangNama[c.id] = c.nama));
+
+  const totalUang = orders.reduce((s, o) => s + num(o.total), 0);
+  const terkumpul = orders.reduce((s, o) => s + Math.min(num(o.paid_amount), num(o.total)), 0);
+  const belumLunas = orders.filter((o) => o.status_bayar !== "lunas");
+  const totalSisa = orders.reduce((s, o) => s + dashSisa(o), 0);
+  const rataRata = orders.length ? totalUang / orders.length : 0;
+  const persenTerkumpul = totalUang > 0 ? Math.round((terkumpul / totalUang) * 100) : 0;
+
+  const statusBayar = { lunas: 0, cicilan: 0, belum_bayar: 0 };
+  const ambil = { sudah: 0, lunasBelum: 0, belumLunasBelum: 0 };
+  const siapDiambil = [];
+  orders.forEach((o) => {
+    if (statusBayar[o.status_bayar] !== undefined) statusBayar[o.status_bayar] += 1;
+    if (o.is_diambil) ambil.sudah += 1;
+    else if (o.status_bayar === "lunas") {
+      ambil.lunasBelum += 1;
+      siapDiambil.push(o);
+    } else ambil.belumLunasBelum += 1;
+  });
+
+  // Pembeli: dikelompokkan menurut nama (huruf besar/kecil & spasi diabaikan)
+  const pembeli = {};
+  orders.forEach((o) => {
+    const kunci = String(o.nama_pembeli || "").trim().toLowerCase() || "(tanpa nama)";
+    if (!pembeli[kunci]) pembeli[kunci] = { nama: (o.nama_pembeli || "").trim() || "(tanpa nama)", pesanan: 0, unit: 0, total: 0 };
+    const b = pembeli[kunci];
+    b.pesanan += 1;
+    b.total += num(o.total);
+    b.unit += (o.items || []).reduce((s, it) => s + num(it.jumlah), 0);
+  });
+  const pembeliArr = Object.values(pembeli);
+  const berulang = pembeliArr.filter((b) => b.pesanan >= 2).length;
+
+  const hariMinggu = [0, 0, 0, 0, 0, 0, 0]; // Senin..Minggu (jumlah nota)
+  const gelombang = {};
+  const omzetProduk = {};
+  const omzetCabang = {};
+  orders.forEach((o) => {
+    hariMinggu[(dashTanggalObj(o).getDay() + 6) % 7] += 1;
+    const cab = !o.cabang_id ? "Tanpa Cabang" : cabangNama[o.cabang_id] || "Cabang (dihapus)";
+    omzetCabang[cab] = (omzetCabang[cab] || 0) + num(o.total);
+    (o.items || []).forEach((it) => {
+      const g = resolveWaveLabelDash(it) || "(tanpa gelombang)";
+      gelombang[g] = (gelombang[g] || 0) + num(it.jumlah);
+      omzetProduk[it.product_name] = (omzetProduk[it.product_name] || 0) + num(it.subtotal);
+    });
+  });
+
+  // Umur tagihan (dari tanggal pesanan) -- hanya yang belum lunas di periode ini
+  const umur = [
+    { label: "0-7 hari", sisa: 0 },
+    { label: "8-14 hari", sisa: 0 },
+    { label: "15-30 hari", sisa: 0 },
+    { label: "> 30 hari", sisa: 0 },
+  ];
+  belumLunas.forEach((o) => {
+    const u = dashUmurHari(o);
+    umur[u <= 7 ? 0 : u <= 14 ? 1 : u <= 30 ? 2 : 3].sisa += dashSisa(o);
+  });
+
+  // ---- kartu angka (baris kedua) ----
+  const kpiHtml = `
+    <div class="grid grid-5" style="margin-top:0; margin-bottom:20px;">
+      ${dashStat("kpi-terkumpul", "ph-hand-coins", "Uang Terkumpul", dashRp(terkumpul), `${persenTerkumpul}% dari total pesanan`)}
+      ${dashStat("kpi-sisa", "ph-hourglass-medium", "Sisa Tagihan", dashRp(totalSisa), `${belumLunas.length} pesanan belum lunas`)}
+      ${dashStat("kpi-rata", "ph-receipt", "Rata-rata per Pesanan", dashRp(rataRata), `dari ${orders.length} pesanan`)}
+      ${dashStat("kpi-siap", "ph-package", "Siap Diambil", String(ambil.lunasBelum), "lunas, menunggu pembeli")}
+      ${dashStat("kpi-berulang", "ph-arrows-clockwise", "Pembeli Berulang", String(berulang), `pesan 2x atau lebih, dari ${pembeliArr.length} pembeli`)}
+    </div>`;
+
+  // ---- kartu grafik & daftar ----
+  const adaOrders = orders.length > 0;
+  const pesanUangSembunyi = "Angka uang disembunyikan (klik ikon mata di kartu Total Uang untuk menampilkan).";
+  const gelombangUrut = Object.entries(gelombang).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const produkUangUrut = Object.entries(omzetProduk).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const cabangUrut = Object.entries(omzetCabang).sort((a, b) => b[1] - a[1]);
+  const adaTagihan = belumLunas.length > 0;
+
+  const cards = [];
+  cards.push(dashChartCard("dx-bayar", "ph-check-circle", "Status Pembayaran", adaOrders, "Jumlah pesanan menurut status bayarnya."));
+  cards.push(dashChartCard("dx-ambil", "ph-basket", "Status Pengambilan", adaOrders, "Sudah diambil, siap diambil (lunas), dan yang masih menunggu pelunasan."));
+  cards.push(dashChartCard("dx-hari", "ph-calendar-blank", "Pesanan per Hari dalam Seminggu", adaOrders, "Kapan pesanan paling ramai masuk."));
+  cards.push(dashChartCard("dx-gelombang", "ph-stack", "Unit per Gelombang (Top 10)", gelombangUrut.length > 0, "Sebaran unit pesanan menurut gelombang."));
+  cards.push(dashChartCard("dx-produk-uang", "ph-coins", "Omzet per Produk (Top 8)", !dashMoneyHidden && produkUangUrut.length > 0, "Produk dengan nilai penjualan terbesar.", dashMoneyHidden ? pesanUangSembunyi : ""));
+  if (semuaCabang && cabangUrut.length > 1) {
+    cards.push(dashChartCard("dx-cabang", "ph-storefront", "Omzet per Cabang", !dashMoneyHidden, "Kontribusi tiap cabang terhadap total pesanan.", pesanUangSembunyi));
+  }
+  cards.push(dashChartCard("dx-umur", "ph-hourglass-medium", "Umur Tagihan Belum Lunas", !dashMoneyHidden && adaTagihan, "Sisa tagihan menurut umur pesanan -- makin lama makin perlu ditagih.", dashMoneyHidden ? pesanUangSembunyi : "Tidak ada tagihan belum lunas di periode ini."));
+
+  const tagihRows = [...belumLunas]
+    .sort((a, b) => dashTanggalObj(a) - dashTanggalObj(b))
+    .slice(0, 8)
+    .map(
+      (o) => `<tr><td><a href="pesanan.html?cari=${encodeURIComponent(o.nama_pembeli || "")}">${escapeHtml(o.nama_pembeli || "-")}</a></td><td style="text-align:center;">${dashUmurHari(o)} hr</td><td style="text-align:right;">${dashRp(dashSisa(o))}</td></tr>`
+    )
+    .join("");
+  cards.push(
+    dashListCard(
+      "list-tagih",
+      "ph-bell-ringing",
+      "Perlu Ditagih",
+      `Pesanan belum lunas yang paling lama di periode ini.${semuaCabang ? ' Semua piutang ada di <a href="laporan-keuangan.html">Laporan Keuangan</a>.' : ""}`,
+      `<th>Pembeli</th><th style="text-align:center;">Umur</th><th style="text-align:right;">Sisa</th>`,
+      tagihRows
+    )
+  );
+  const siapRows = [...siapDiambil]
+    .sort((a, b) => dashTanggalObj(a) - dashTanggalObj(b))
+    .slice(0, 8)
+    .map(
+      (o) => `<tr><td><a href="pesanan.html?cari=${encodeURIComponent(o.nama_pembeli || "")}">${escapeHtml(o.nama_pembeli || "-")}</a></td><td style="text-align:center;">${dashUmurHari(o)} hr</td><td style="text-align:center;">${(o.items || []).reduce((s, it) => s + num(it.jumlah), 0)}</td></tr>`
+    )
+    .join("");
+  cards.push(
+    dashListCard(
+      "list-siap",
+      "ph-package",
+      "Siap Diambil",
+      "Sudah lunas tapi belum diambil pembeli -- yang paling lama menunggu di atas.",
+      `<th>Pembeli</th><th style="text-align:center;">Menunggu</th><th style="text-align:center;">Unit</th>`,
+      siapRows
+    )
+  );
+  const topPembeliRows = [...pembeliArr]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8)
+    .map(
+      (b) => `<tr><td>${escapeHtml(b.nama)}</td><td style="text-align:center;">${b.pesanan}</td><td style="text-align:center;">${b.unit}</td><td style="text-align:right;">${dashRp(b.total)}</td></tr>`
+    )
+    .join("");
+  cards.push(
+    dashListCard(
+      "list-pembeli",
+      "ph-trophy",
+      "Pembeli Teratas",
+      "Menurut total nilai pesanan di periode ini.",
+      `<th>Pembeli</th><th style="text-align:center;">Pesanan</th><th style="text-align:center;">Unit</th><th style="text-align:right;">Total</th>`,
+      topPembeliRows
+    )
+  );
+
+  const cardsHtml = `
+    <div class="grid grid-2 chart-card-row" style="margin-top:20px;">${cards.join("")}
+    </div>`;
+
+  // ---- gambar grafik (dipanggil setelah HTML dipasang ke halaman) ----
+  const draw = () => {
+    if (typeof Chart === "undefined") return;
+    const bikin = (id, cfg) => {
+      const el = document.getElementById(id);
+      if (el) dashExtraCharts.push(new Chart(el, cfg));
+    };
+    const dasar = { responsive: true, maintainAspectRatio: false };
+    const donat = (id, labels, data, warna, satuan) =>
+      bikin(id, {
+        type: "doughnut",
+        data: { labels, datasets: [{ data, backgroundColor: warna, borderWidth: 1 }] },
+        options: { ...dasar, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } }, tooltip: { callbacks: { label: (c) => (satuan === "rp" ? `${c.label}: ${formatRupiah(c.parsed)}` : `${c.label}: ${c.parsed} pesanan`) } } } },
+      });
+    donat("dx-bayar", ["Lunas", "Bayar Sebagian", "Belum Bayar"], [statusBayar.lunas, statusBayar.cicilan, statusBayar.belum_bayar], ["#16a34a", "#f59e0b", "#dc2626"]);
+    donat("dx-ambil", ["Sudah Diambil", "Lunas, Belum Diambil", "Belum Lunas, Belum Diambil"], [ambil.sudah, ambil.lunasBelum, ambil.belumLunasBelum], ["#16a34a", "#0ea5e9", "#f59e0b"]);
+    bikin("dx-hari", {
+      type: "bar",
+      data: { labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"], datasets: [{ label: "Pesanan", data: hariMinggu, backgroundColor: "#8b5cf6", borderRadius: 6 }] },
+      options: { ...dasar, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+    });
+    bikin("dx-gelombang", {
+      type: "bar",
+      data: { labels: gelombangUrut.map((g) => g[0]), datasets: [{ label: "Unit", data: gelombangUrut.map((g) => g[1]), backgroundColor: "#14b8a6", borderRadius: 6 }] },
+      options: { ...dasar, indexAxis: "y", plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } },
+    });
+    if (!dashMoneyHidden) {
+      bikin("dx-produk-uang", {
+        type: "bar",
+        data: { labels: produkUangUrut.map((p) => (p[0].length > 24 ? p[0].slice(0, 23) + "…" : p[0])), datasets: [{ label: "Omzet", data: produkUangUrut.map((p) => p[1]), backgroundColor: "#16a34a", borderRadius: 6 }] },
+        options: { ...dasar, indexAxis: "y", plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => formatRupiah(c.parsed.x) } } }, scales: { x: { beginAtZero: true, ticks: { callback: (v) => dashSingkat(v) } } } },
+      });
+      if (semuaCabang && cabangUrut.length > 1) donat("dx-cabang", cabangUrut.map((c) => c[0]), cabangUrut.map((c) => c[1]), DASH_PALET, "rp");
+      if (adaTagihan) {
+        bikin("dx-umur", {
+          type: "bar",
+          data: { labels: umur.map((u) => u.label), datasets: [{ label: "Sisa tagihan", data: umur.map((u) => u.sisa), backgroundColor: ["#16a34a", "#f59e0b", "#f97316", "#dc2626"], borderRadius: 6 }] },
+          options: { ...dasar, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => formatRupiah(c.parsed.y) } } }, scales: { y: { beginAtZero: true, ticks: { callback: (v) => dashSingkat(v) } } } },
+        });
+      }
+    }
+  };
+
+  return { kpiHtml, cardsHtml, draw };
+}
+
 function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap, metrik) {
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;

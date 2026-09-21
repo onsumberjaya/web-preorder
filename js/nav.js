@@ -15,7 +15,8 @@ const NAV_ITEMS = [
 ];
 
 function renderSidebar(profile) {
-  const currentPage = location.pathname.split("/").pop() || "pesanan.html";
+  let currentPage = location.pathname.split("/").pop() || "pesanan.html";
+  if (currentPage === "dashboard-kelola.html") currentPage = "dashboard.html"; // halaman turunan Dashboard: menu Dashboard tetap menyala
 
   const navHtml = NAV_ITEMS.filter((item) => {
       if (item.roles) return item.roles.includes(profile.role);
@@ -37,7 +38,7 @@ function renderSidebar(profile) {
         <div class="logo"><i class="ph-bold ph-plant"></i></div>
         <div>
           <h1>TOKO SUMBER JAYA</h1>
-          <p class="app-meta">Sistem Manajemen Pesanan Preorder <a href="tentang.html" class="app-version" style="text-decoration:none;">v1.7</a></p>
+          <p class="app-meta">Sistem Manajemen Pesanan Preorder <a href="tentang.html" class="app-version" style="text-decoration:none;">v1.8</a></p>
         </div>
       </div>
       <div class="sidebar-nav">${navHtml}</div>

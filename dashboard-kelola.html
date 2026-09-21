@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kelola Tampilan Dashboard - Benih Preorder</title>
+<link rel="stylesheet" href="css/style.css" />
+<script>(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&window.matchMedia("(prefers-color-scheme: dark)").matches)){document.documentElement.setAttribute("data-theme","dark");}}catch(e){}})();</script>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#16a34a" />
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Benih Preorder" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://www.gstatic.com" />
+<link rel="preconnect" href="https://unpkg.com" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.2" defer></script>
+<script src="js/pwa-register.js?v=10" defer></script>
+</head>
+<body>
+  <div id="mobile-topbar"></div>
+  <div id="mobile-bottom-nav"></div>
+  <div id="sidebar-overlay"></div>
+  <div class="app-shell">
+    <nav id="sidebar"></nav>
+    <main class="content">
+      <div class="page-header-row">
+        <h1 class="page-title" style="margin:0;">Kelola Tampilan Dashboard</h1>
+        <div class="page-header-actions">
+          <a class="btn-secondary btn-sm" href="dashboard.html"><i class="ph-bold ph-arrow-left"></i> Kembali ke Dashboard</a>
+        </div>
+      </div>
+      <p class="page-subtitle">Pilih bagian Dashboard yang ingin ditampilkan atau disembunyikan. Perubahan langsung tersimpan.</p>
+
+      <div id="kelola-content"><div class="loading-center"><div class="spinner"></div></div></div>
+    </main>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js" defer></script>
+  <script src="js/firebase-config.js?v=10" defer></script>
+  <script src="js/utils.js?v=10" defer></script>
+  <script src="js/nav.js?v=10" defer></script>
+  <script src="js/auth-guard.js?v=10" defer></script>
+  <script src="js/presence.js?v=10" defer></script>
+  <script src="js/dashboard-prefs.js?v=10" defer></script>
+  <script src="js/dashboard-kelola.js?v=10" defer></script>
+</body>
+</html>
