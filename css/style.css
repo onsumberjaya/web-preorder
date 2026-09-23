@@ -873,7 +873,7 @@ table tbody tr:hover { background: var(--gray-50); }
 
 .nota-a4 { width: 210mm; height: 148.5mm; margin: 0 auto; padding: 6mm 12mm 5mm; background: #fff; font-size: 12px; box-sizing: border-box; overflow: hidden; }
 .nota-a4 table { font-size: 11.5px; }
-.nota-a4 table td, .nota-a4 table th { padding: 2px; border-bottom: none; }
+.nota-a4 table td, .nota-a4 table th { padding: 3px 2px; border-bottom: none; }
 .nota-a4 thead tr { border-bottom: 1px solid #000; }
 .nota-dm { width: 68mm; margin: 0 auto; padding: 2mm 4mm; background: #fff; font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 13.5px; font-weight: 400; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .nota-dm table { font-size: 13px; width: 100%; font-weight: 400; }

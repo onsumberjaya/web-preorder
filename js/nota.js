@@ -56,7 +56,7 @@ function renderNota() {
   const items = o.items || [];
   const sisa = o.total - (o.paid_amount || 0);
 
-  const MIN_BARIS_A4 = 5;
+  const MIN_BARIS_A4 = 10;
   const itemRowsA4Isi = items
     .map(
       (it, i) => `
@@ -74,7 +74,7 @@ function renderNota() {
   const itemRowsA4Kosong = Array.from({ length: jumlahBarisKosong })
     .map(
       () => `
-    <tr style="height:15px;">
+    <tr style="height:17px;">
       <td>&nbsp;</td>
       <td>&nbsp;</td>
       <td>&nbsp;</td>
@@ -109,17 +109,17 @@ function renderNota() {
       <div style="display:flex; margin-bottom:8px;">
         <div style="width:35%; min-width:0;">
           <table style="border-collapse:collapse; width:100%;">
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Nama</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.nama_pembeli)}</td></tr>
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Alamat</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.alamat || "-")}</td></tr>
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">No. HP</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.no_hp || "-")}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Nama</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.nama_pembeli)}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Alamat</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.alamat || "-")}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">No. HP</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.no_hp || "-")}</td></tr>
           </table>
         </div>
         <div style="width:30%; min-width:0;"></div>
         <div style="width:35%; min-width:0;">
           <table style="border-collapse:collapse; width:100%;">
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">No. Nota</td><td style="padding:0; word-break:break-word;">: ${formatOrderNo(o)}</td></tr>
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Tanggal</td><td style="padding:0; word-break:break-word;">: ${formatTanggal(o.tanggal)}</td></tr>
-            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Status</td><td style="padding:0; word-break:break-word;">: ${STATUS_BAYAR_LABEL[o.status_bayar]}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">No. Nota</td><td style="padding:1px 0; word-break:break-word;">: ${formatOrderNo(o)}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Tanggal</td><td style="padding:1px 0; word-break:break-word;">: ${formatTanggal(o.tanggal)}</td></tr>
+            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Status</td><td style="padding:1px 0; word-break:break-word;">: ${STATUS_BAYAR_LABEL[o.status_bayar]}</td></tr>
           </table>
         </div>
       </div>
