@@ -56,7 +56,8 @@ function renderNota() {
   const items = o.items || [];
   const sisa = o.total - (o.paid_amount || 0);
 
-  const itemRowsA4 = items
+  const MIN_BARIS_A4 = 5;
+  const itemRowsA4Isi = items
     .map(
       (it, i) => `
     <tr>
@@ -69,6 +70,21 @@ function renderNota() {
     </tr>`
     )
     .join("");
+  const jumlahBarisKosong = Math.max(0, MIN_BARIS_A4 - items.length);
+  const itemRowsA4Kosong = Array.from({ length: jumlahBarisKosong })
+    .map(
+      () => `
+    <tr style="height:15px;">
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>`
+    )
+    .join("");
+  const itemRowsA4 = itemRowsA4Isi + itemRowsA4Kosong;
 
   const itemRowsDm = items
     .map(
@@ -83,51 +99,58 @@ function renderNota() {
     )
     .join("");
 
-  document.getElementById("nota-container").innerHTML = `
-    <div class="nota-a4">
-      <div style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:14px;">
-        <h2 style="margin:0;">${escapeHtml(notaToko.nama || "Toko Benih")}</h2>
-        <p style="margin:2px 0;">${escapeHtml(notaToko.alamat || "")}</p>
-        <p style="margin:2px 0;">${escapeHtml(notaToko.no_hp || "")}</p>
-        <p style="margin:6px 0 0; font-weight:700; letter-spacing:1px;">NOTA PREORDER</p>
+  const notaA4Body = `
+      <div style="text-align:center; border-bottom:2px solid #000; padding-bottom:6px; margin-bottom:8px;">
+        <h2 style="margin:0; font-size:16px;">${escapeHtml(notaToko.nama || "Toko Benih")}</h2>
+        <p style="margin:1px 0; font-size:11px;">${escapeHtml(notaToko.alamat || "")}</p>
+        <p style="margin:1px 0; font-size:11px;">${escapeHtml(notaToko.no_hp || "")}</p>
+        <p style="margin:4px 0 0; font-weight:700; letter-spacing:1px; font-size:12px;">NOTA PREORDER</p>
       </div>
-      <div style="display:flex; margin-bottom:14px;">
+      <div style="display:flex; margin-bottom:8px;">
         <div style="width:35%; min-width:0;">
           <table style="border-collapse:collapse; width:100%;">
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Nama</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.nama_pembeli)}</td></tr>
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Alamat</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.alamat || "-")}</td></tr>
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">No. HP</td><td style="padding:1px 0; word-break:break-word;">: ${escapeHtml(o.no_hp || "-")}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Nama</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.nama_pembeli)}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Alamat</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.alamat || "-")}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">No. HP</td><td style="padding:0; word-break:break-word;">: ${escapeHtml(o.no_hp || "-")}</td></tr>
           </table>
         </div>
         <div style="width:30%; min-width:0;"></div>
         <div style="width:35%; min-width:0;">
           <table style="border-collapse:collapse; width:100%;">
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">No. Nota</td><td style="padding:1px 0; word-break:break-word;">: ${formatOrderNo(o)}</td></tr>
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Tanggal</td><td style="padding:1px 0; word-break:break-word;">: ${formatTanggal(o.tanggal)}</td></tr>
-            <tr><td style="font-weight:700; padding:1px 6px 1px 0; white-space:nowrap; vertical-align:top;">Status</td><td style="padding:1px 0; word-break:break-word;">: ${STATUS_BAYAR_LABEL[o.status_bayar]}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">No. Nota</td><td style="padding:0; word-break:break-word;">: ${formatOrderNo(o)}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Tanggal</td><td style="padding:0; word-break:break-word;">: ${formatTanggal(o.tanggal)}</td></tr>
+            <tr><td style="font-weight:700; padding:0 6px 0 0; white-space:nowrap; vertical-align:top;">Status</td><td style="padding:0; word-break:break-word;">: ${STATUS_BAYAR_LABEL[o.status_bayar]}</td></tr>
           </table>
         </div>
       </div>
       <table style="width:100%; border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:1px solid #000;">
-            <th style="text-align:left; padding:4px;">No</th>
-            <th style="text-align:left; padding:4px;">Produk</th>
-            <th style="text-align:left; padding:4px;">Gelombang</th>
-            <th style="text-align:center; padding:4px;">Jml</th>
-            <th style="text-align:right; padding:4px;">Harga</th>
-            <th style="text-align:right; padding:4px;">Subtotal</th>
+            <th style="text-align:left; padding:2px;">No</th>
+            <th style="text-align:left; padding:2px;">Produk</th>
+            <th style="text-align:left; padding:2px;">Gelombang</th>
+            <th style="text-align:center; padding:2px;">Jml</th>
+            <th style="text-align:right; padding:2px;">Harga</th>
+            <th style="text-align:right; padding:2px;">Subtotal</th>
           </tr>
         </thead>
         <tbody>${itemRowsA4}</tbody>
       </table>
-      <div style="border-top:1px solid #000; margin-top:10px; padding-top:10px;">
-        <div style="display:flex; justify-content:space-between;"><span>Total</span><strong>${formatRupiah(o.total)}</strong></div>
-        <div style="display:flex; justify-content:space-between;"><span>Sudah Dibayar</span><span>${formatRupiah(o.paid_amount || 0)}</span></div>
-        <div style="display:flex; justify-content:space-between; font-size:15px;"><strong>Sisa</strong><strong>${formatRupiah(sisa)}</strong></div>
+      <div style="display:flex; border-top:1px solid #000; margin-top:6px; padding-top:6px;">
+        <div style="width:55%; min-width:0; padding-right:14px; box-sizing:border-box;">
+          ${o.catatan ? `<div style="font-weight:700; margin-bottom:2px;">Catatan</div><div style="word-break:break-word; white-space:pre-wrap;">${escapeHtml(o.catatan)}</div>` : ""}
+        </div>
+        <div style="width:45%; min-width:0;">
+          <div style="display:flex; justify-content:space-between;"><span>Total</span><strong>${formatRupiah(o.total)}</strong></div>
+          <div style="display:flex; justify-content:space-between;"><span>Sudah Dibayar</span><span>${formatRupiah(o.paid_amount || 0)}</span></div>
+          <div style="display:flex; justify-content:space-between; font-size:15px;"><strong>Sisa</strong><strong>${formatRupiah(sisa)}</strong></div>
+        </div>
       </div>
-      <p style="text-align:center; margin-top:26px; color:#555;">Terima kasih atas pesanan Anda</p>
-    </div>
+      <p style="text-align:center; margin-top:10px; color:#555; font-size:11px;">Terima kasih atas pesanan Anda</p>
+  `;
+
+  document.getElementById("nota-container").innerHTML = `
+    <div class="nota-a4">${notaA4Body}</div>
 
     <div class="nota-dm">
       <div style="text-align:center;">
@@ -151,6 +174,7 @@ function renderNota() {
         <tr><td>Bayar</td><td style="text-align:right;">${formatRupiah(o.paid_amount || 0)}</td></tr>
         <tr><td><strong>Sisa</strong></td><td style="text-align:right;"><strong>${formatRupiah(sisa)}</strong></td></tr>
       </table>
+      ${o.catatan ? `<hr /><div><strong>Catatan:</strong> ${escapeHtml(o.catatan)}</div>` : ""}
       <hr />
       <div style="text-align:center;">Terima kasih</div>
     </div>
