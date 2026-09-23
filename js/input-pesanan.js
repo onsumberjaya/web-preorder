@@ -381,7 +381,7 @@ function renderForm() {
               Owner sudah menonaktifkan cabang ini, jadi input pesanan baru sementara ditutup.
               Riwayat pesanan lama tetap bisa dilihat lewat menu Daftar Pesanan.
             </p>
-            <a href="pesanan.html" class="btn-secondary" style="margin-top:16px; display:inline-flex;">Ke Daftar Pesanan</a>
+            <a href="pesanan.html" class="btn btn-secondary" style="margin-top:16px; display:inline-flex;">Ke Daftar Pesanan</a>
           </div>`;
         return;
       }
@@ -485,7 +485,7 @@ function renderForm() {
             <button type="submit" class="btn-primary" style="flex:1; justify-content:center; padding:12px;" id="submit-btn">
               ${isEdit ? "Simpan Perubahan" : "Simpan Pesanan"}
             </button>
-            ${isEdit ? `<a href="pesanan.html" class="btn-secondary" style="padding:12px 18px;">Batal</a>` : ""}
+            ${isEdit ? `<a href="pesanan.html" class="btn btn-secondary" style="padding:12px 18px;">Batal</a>` : ""}
           </div>
         </form>
       </div>
@@ -531,7 +531,7 @@ function renderForm() {
 
   const bayarInput = document.getElementById("f-bayar");
   if (bayarInput) bayarInput.addEventListener("input", () => {
-    formatNumberInputLive(bayarInput);
+    formatNumberInputLiveAllowZero(bayarInput); // 0 = belum bayar sama sekali, jawaban sah -- lihat komentar di utils.js
     updateTotalDisplay();
   });
   document.getElementById("f-nama").addEventListener("input", updateSummaryPanel);

@@ -41,6 +41,10 @@
       <div class="card" style="margin-bottom:16px;">
         <div class="grid grid-3">
           <div class="field">
+            <label>Periode</label>
+            <select id="peng-periode"></select>
+          </div>
+          <div class="field">
             <label>Dari Tanggal</label>
             <input type="date" id="peng-dari" />
           </div>
@@ -89,7 +93,7 @@
         </div>
         <div class="field">
           <label>Jumlah Dibayar (Rp) *</label>
-          <input type="text" inputmode="numeric" id="peng-dibayar" required oninput="formatNumberInputLive(this)" />
+          <input type="text" inputmode="numeric" id="peng-dibayar" required oninput="formatNumberInputLiveAllowZero(this)" />
           <p id="peng-dibayar-locked-note" style="display:none; font-size:11.5px; color:var(--gray-500); margin:4px 0 0;">
             Pengeluaran ini sudah punya riwayat pembayaran -- untuk mencatat cicilan/pelunasan atau mengoreksinya, pakai tombol koin (Bayar/Riwayat) di baris pengeluaran.
           </p>

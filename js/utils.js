@@ -91,27 +91,110 @@ function localYmd(d) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// ---------- Filter Rentang Tanggal (Periode Cepat) -- SATU standar dipakai di
+// semua halaman yang punya filter Dari/Sampai (Dashboard, Daftar Pesanan,
+// Laporan, Laporan Keuangan, Pengeluaran, Arsip PO). Sebelumnya tiap halaman
+// beda-beda: sebagian cuma 2 input tanggal polos (default macam-macam, ada
+// yang 30 hari terakhir, ada yang kosong semua), Dashboard sendiri satu-
+// satunya yang punya dropdown pilihan cepat. Sekarang semua pakai dropdown
+// yang sama (5 pilihan) + 2 input tanggal di baliknya.
+const DATE_FILTER_OPTIONS = [
+  { value: "harian", label: "Hari Ini" },
+  { value: "mingguan", label: "Minggu Ini" },
+  { value: "bulanan", label: "Bulan Ini" },
+  { value: "custom", label: "Rentang Tanggal..." },
+  { value: "semua", label: "Semua Waktu" },
+];
+
+function dateFilterOptionsHtml(selected, excludeValues) {
+  const excl = excludeValues || [];
+  return DATE_FILTER_OPTIONS.filter((o) => !excl.includes(o.value))
+    .map((o) => `<option value="${o.value}"${o.value === selected ? " selected" : ""}>${o.label}</option>`)
+    .join("");
+}
+
+// mode -> { dari, sampai } sebagai string YYYY-MM-DD siap taruh ke
+// input[type=date].value ("" berarti tidak dibatasi -- dipakai utk "Semua
+// Waktu"). "custom" mengembalikan null (bukan diisi otomatis -- tanggalnya
+// user yang isi/edit sendiri lewat 2 input di bawah dropdown).
+// "mingguan" = MINGGU KALENDER (Senin s/d Minggu berjalan), bukan 7 hari
+// terakhir bergulir -- konsisten dengan "bulanan" yang juga 1 Awal Bulan s/d
+// akhir bulan (bukan "30 hari terakhir").
+function dateFilterRangeStrings(mode) {
+  const now = new Date();
+  if (mode === "harian") {
+    const s = localYmd(now);
+    return { dari: s, sampai: s };
+  }
+  if (mode === "mingguan") {
+    const senin = new Date(now);
+    senin.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Senin minggu ini (Minggu dianggap akhir pekan, bukan awal)
+    const minggu = new Date(senin);
+    minggu.setDate(senin.getDate() + 6);
+    return { dari: localYmd(senin), sampai: localYmd(minggu) };
+  }
+  if (mode === "bulanan") {
+    const awal = new Date(now.getFullYear(), now.getMonth(), 1);
+    const akhir = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { dari: localYmd(awal), sampai: localYmd(akhir) };
+  }
+  if (mode === "semua") return { dari: "", sampai: "" };
+  return null; // "custom" -- biarkan input tanggal apa adanya
+}
+
+// Pasang listener di dropdown Periode Cepat: begitu diganti (kecuali ke
+// "Rentang Tanggal...", yang membiarkan tanggal apa adanya), 2 input tanggal
+// di sebelahnya otomatis terisi sesuai pilihan. `onFilled` dipanggil setelah
+// tanggal terisi (mis. buat langsung memuat ulang data) -- TIDAK dipanggil
+// saat pilih "Rentang Tanggal..." (nunggu user isi tanggalnya sendiri / tekan
+// tombol Terapkan Filter, seperti alur yang sudah ada di tiap halaman).
+// Kalau user mengedit input tanggal SECARA MANUAL setelah pilih preset,
+// dropdown otomatis balik ke "Rentang Tanggal..." supaya tidak menyesatkan
+// (menampilkan preset yang tanggalnya sudah tidak cocok lagi).
+function wireDateFilterPreset(presetId, dariId, sampaiId, onFilled) {
+  const presetEl = document.getElementById(presetId);
+  const dariEl = document.getElementById(dariId);
+  const sampaiEl = document.getElementById(sampaiId);
+  if (!presetEl || !dariEl || !sampaiEl) return;
+  presetEl.addEventListener("change", () => {
+    const range = dateFilterRangeStrings(presetEl.value);
+    if (!range) return; // "custom" -- tidak menyentuh tanggal yang sudah ada
+    dariEl.value = range.dari;
+    sampaiEl.value = range.sampai;
+    if (onFilled) onFilled(presetEl.value);
+  });
+  const balikKeCustom = () => {
+    if (presetEl.value !== "custom") presetEl.value = "custom";
+  };
+  dariEl.addEventListener("input", balikKeCustom);
+  sampaiEl.addEventListener("input", balikKeCustom);
+}
+
 // PENINGKATAN UI/UX (Tahap 3): potongan HTML progress bar visual, dipakai
 // bersama untuk proses panjang berulang (hapus massal, restore arsip, dst).
 // Cukup timpa innerHTML container dengan hasil fungsi ini tiap iterasi.
-// PENINGKATAN UI/UX: skeleton loading (ganti spinner polos) -- lihat CSS
-// terkait (.skeleton-*) di css/style.css. skeletonRows() buat halaman
-// berbentuk tabel (Daftar Pesanan, Laporan), skeletonCards() buat halaman
-// berbentuk kartu statistik (Dashboard).
+// Animasi loading -- SATU jenis dipakai di seluruh aplikasi: spinner titik
+// muter (.spinner, sama persis dengan yang tampil saat halaman pertama kali
+// dibuka). Dulu ada 2 jenis animasi (spinner untuk buka halaman pertama kali,
+// "skeleton" kotak abu-abu berkedip untuk muat ulang tabel) -- sekarang
+// diseragamkan jadi spinner saja supaya konsisten, termasuk dengan keterangan
+// fitur di halaman Tentang & Riwayat Pembaruan. Ketiga fungsi berikut
+// (dipanggil lewat innerHTML dari 6 file: arsip.js, dashboard.js,
+// laporan-keuangan.js, laporan.js, pengeluaran.js, pesanan.js) sengaja
+// dipertahankan namanya supaya tidak perlu mengubah pemanggilnya satu per
+// satu -- parameter `count` (jumlah baris/kartu) sudah tidak relevan untuk
+// spinner, dibiarkan diterima tapi diabaikan.
 function skeletonRows(count) {
-  const row = `<div class="skeleton-row"><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
-  return `<div class="card" style="padding:0; overflow:hidden;">${row.repeat(count)}</div>`;
+  return `<div class="card" style="padding:0;"><div class="loading-inline"><div class="spinner"></div></div></div>`;
 }
 function skeletonCards(count) {
-  const card = `<div class="skeleton-card"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
-  return `<div class="skeleton-cards-grid">${card.repeat(count)}</div>`;
+  return `<div class="loading-inline"><div class="spinner"></div></div>`;
 }
 // Versi ringan skeletonRows() TANPA bungkus .card -- buat dipakai di dalam
 // modal/panel yang sudah punya bingkai sendiri (mis. bagian Riwayat
 // Pembayaran di Detail Pesanan), supaya tidak dobel bingkai bersarang.
 function skeletonRowsBare(count) {
-  const row = `<div class="skeleton-row" style="padding:10px 0;"><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div><div class="skeleton-block"></div></div>`;
-  return row.repeat(count);
+  return `<div class="loading-inline" style="padding:16px 0;"><div class="spinner"></div></div>`;
 }
 
 // PENINGKATAN UI/UX: format ribuan otomatis saat mengetik nominal uang (mis.
@@ -126,6 +209,20 @@ function parseFormattedNumber(str) {
 function formatNumberInputLive(inputEl) {
   const raw = parseFormattedNumber(inputEl.value);
   inputEl.value = raw > 0 ? raw.toLocaleString("id-ID") : "";
+}
+// PERBAIKAN BUG: versi di atas menghapus isian field begitu hasilnya 0 --
+// cocok untuk field yang MEMANG cuma valid kalau > 0 (jumlah bayar, harga
+// jual, dst; field kosong lolos "required" di browser tapi tetap ditolak
+// validasi JS-nya sendiri). TAPI untuk field yang 0 itu SENDIRI adalah
+// jawaban sah (mis. "Bayar Sekarang" pesanan baru = 0 berarti belum bayar
+// sama sekali), ini jadi bug: field itu wajib diisi (required) tapi tiap
+// user mengosongkan lalu mengetik ulang "0", langsung terhapus lagi oleh
+// baris di atas -- form jadi mustahil disimpan dengan nilai 0 walau memang
+// itu yang diinginkan. Dipakai di "Bayar Sekarang" (Input Pesanan) & "Jumlah
+// Dibayar" (Pengeluaran).
+function formatNumberInputLiveAllowZero(inputEl) {
+  const digits = String(inputEl.value || "").replace(/[^0-9]/g, "");
+  inputEl.value = digits === "" ? "" : Number(digits).toLocaleString("id-ID");
 }
 
 function progressBarHtml(current, total, label) {

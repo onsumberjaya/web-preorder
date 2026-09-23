@@ -57,13 +57,21 @@
       <div class="card">
         <div class="changelog-entry">
           <div class="changelog-version-row">
-            <h2>Versi 1.8</h2>
+            <h2>Versi 1.9</h2>
             <span class="changelog-badge-new">Terbaru</span>
           </div>
+          <ul class="changelog-list">
+            <li>Animasi loading diseragamkan: kotak abu-abu berkedip ("skeleton") di Daftar Pesanan, Laporan, Dashboard, Arsip PO, Pengeluaran, dan Laporan Keuangan sekarang diganti spinner titik muter -- sama dengan animasi saat halaman pertama kali dibuka.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row"><h2>Versi 1.8</h2></div>
           <ul class="changelog-list">
             <li><strong>Statistik Bulanan di Dashboard</strong> (opsional): perbandingan tahun ini dengan tahun lalu per bulan (Januari sampai Desember) dalam bentuk grafik dan tabel, lengkap dengan selisih persen. Bisa memilih metrik Jumlah Pesanan, Unit Produk, atau Omzet, dan mengikuti filter Produk, Gelombang, Cabang, dan Alamat yang sedang aktif.</li>
             <li>Statistik Bulanan <strong>bawaannya nonaktif</strong> karena membaca lebih banyak data. Nyalakan atau matikan lewat tombol "Statistik Bulanan" di Dashboard atau di halaman Kelola Tampilan. Setelah dimuat, hasilnya disimpan sementara 30 menit di browser dan disaring ulang di memori, jadi ganti filter atau pindah halaman tidak membaca ulang database. Pesanan yang sudah diarsipkan ikut dihitung dari rekap bulanannya saat tidak ada filter yang aktif.</li>
             <li>Halaman baru <strong>Kelola Tampilan Dashboard</strong> (tombol di kanan atas Dashboard): pilih bagian mana yang ditampilkan atau disembunyikan, yaitu kartu ringkasan, grafik, daftar, dan tabel satu per satu. Tersedia juga Tampilkan Semua, Sembunyikan Semua, dan Kembalikan ke Bawaan. Pengaturan tersimpan per akun di perangkat yang dipakai, dan bagian yang disembunyikan tidak ikut dirender.</li>
+                      <li>Perbaikan kecil di <code>firestore.rules</code>: ada dua aturan izin baca yang isinya sama persis untuk riwayat pembayaran lintas pesanan (Buku Kas) -- digabung jadi satu, tanpa mengubah siapa saja yang boleh mengakses.</li>
           </ul>
         </div>
 

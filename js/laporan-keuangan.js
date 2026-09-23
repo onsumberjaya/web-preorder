@@ -39,6 +39,8 @@ window.onAuthReady = async function (profile) {
   lkProfile = profile;
   document.getElementById("lk-dari").value = defaultLkDari();
   document.getElementById("lk-sampai").value = localYmd(new Date());
+  document.getElementById("lk-periode").innerHTML = dateFilterOptionsHtml("custom"); // dari/sampai default 30 hari terakhir di atas -- ditampilkan apa adanya lewat "Rentang Tanggal..."
+  wireDateFilterPreset("lk-periode", "lk-dari", "lk-sampai"); // SAMA seperti di halaman lain -- lihat js/utils.js. Tidak auto-terapkan, tetap lewat tombol "Terapkan Filter" seperti biasa.
   // Nama toko buat kop Export Excel/PDF -- kalau gagal dimuat (jarang),
   // diamkan & pakai fallback "Toko Benih" seperti di Laporan biasa, tidak
   // sampai menghalangi halaman ini dipakai.
@@ -371,7 +373,7 @@ function renderLkLabaRugi() {
       incompleteHppCount > 0
         ? `<div class="alert alert-error" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
             <span><i class="ph-bold ph-warning"></i> <strong>${incompleteHppCount} pesanan</strong> di periode ini belum lengkap HPP-nya (minimal 1 item belum ada Harga Modal) -- Laba Kotor & Laba Bersih di atas kemungkinan lebih besar dari yang sebenarnya.</span>
-            <a href="laporan.html" class="btn-secondary btn-sm" style="white-space:nowrap;">Isi Ulang HPP <i class="ph-bold ph-arrow-right"></i></a>
+            <a href="laporan.html" class="btn btn-secondary btn-sm" style="white-space:nowrap;">Isi Ulang HPP <i class="ph-bold ph-arrow-right"></i></a>
           </div>`
         : `<p style="font-size:12px; color:var(--gray-500); margin:0 0 16px;"><i class="ph-bold ph-check-circle" style="color:var(--brand-600);"></i> HPP semua pesanan di periode ini sudah lengkap.</p>`
     }
@@ -984,7 +986,7 @@ async function renderLkOrderDetail(id) {
       <div style="font-weight:600; font-size:13.5px; margin-bottom:6px;">Riwayat Pembayaran</div>
       ${riwayat}
       <div style="display:flex; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-100);">
-        <a class="btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="flex:1; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
+        <a class="btn btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="flex:1; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
         <button type="button" class="btn-secondary btn-sm" style="flex:1; justify-content:center;" onclick="window.open('nota.html?id=${order.id}','_blank')"><i class="ph ph-printer"></i> Cetak Nota</button>
       </div>
       <button type="button" class="btn-secondary" style="width:100%; justify-content:center; margin-top:10px;" onclick="closeLkDetail()">Tutup</button>`;

@@ -22,6 +22,8 @@ window.onAuthReady = async function (profile) {
     pengProfile = profile;
     document.getElementById("peng-dari").value = defaultPengDari();
     document.getElementById("peng-sampai").value = localYmd(new Date());
+    document.getElementById("peng-periode").innerHTML = dateFilterOptionsHtml("custom");
+    wireDateFilterPreset("peng-periode", "peng-dari", "peng-sampai"); // SAMA seperti di halaman lain -- lihat js/utils.js
     document.getElementById("peng-tanggal").value = todayInputValue();
 
     // Realtime: daftar kategori dipakai bersama oleh dropdown filter, form

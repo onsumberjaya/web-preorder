@@ -59,6 +59,8 @@ window.onAuthReady = async function (profile) {
 
     document.getElementById("lap-dari").value = defaultLapDari();
     document.getElementById("lap-sampai").value = localYmd(new Date());
+    document.getElementById("lap-periode").innerHTML = dateFilterOptionsHtml("custom");
+    wireDateFilterPreset("lap-periode", "lap-dari", "lap-sampai"); // SAMA seperti di halaman lain -- lihat js/utils.js
 
     const [prodSnap, cabangSnap, tokoDoc] = await Promise.all([
       db.collection("products").orderBy("nama").get(),

@@ -164,6 +164,11 @@ function applyQuickFilter(type) {
     document.getElementById("filter-sampai").value = "";
     document.getElementById("filter-bayar").value = "belum_lunas";
   }
+  // Dropdown Periode Cepat ikut disamakan -- chip ini set dari/sampai lewat .value
+  // langsung (tidak lewat dropdown), jadi tidak otomatis kebalik ke "Rentang
+  // Tanggal..." lewat listener di wireDateFilterPreset(). "Semua Waktu" khusus
+  // buat "belum-lunas" (dari/sampai memang sengaja dikosongkan di atas).
+  document.getElementById("filter-periode-pesanan").value = type === "belum-lunas" ? "semua" : "custom";
 
   // Buka panel filter biar kelihatan kondisi apa yang lagi aktif.
   document.getElementById("pesanan-filter-toolbar").style.display = "";
@@ -205,6 +210,7 @@ window.onAuthReady = function (profile) {
   // kena batas tanggal default.
   document.getElementById("filter-dari").value = fromAnomaliLink || cariDariTopbar ? "" : defaultDariTanggal();
   document.getElementById("filter-sampai").value = fromAnomaliLink || cariDariTopbar ? "" : localYmd(new Date());
+  document.getElementById("filter-periode-pesanan").innerHTML = dateFilterOptionsHtml(fromAnomaliLink || cariDariTopbar ? "semua" : "custom");
   if (fromAnomaliLink) {
     document.getElementById("filter-harga-janggal").checked = true;
     document.getElementById("anomali-chip").classList.add("active");
@@ -218,6 +224,11 @@ window.onAuthReady = function (profile) {
   // atas), NIAT eksplisit itu yang menang, bukan filter lama yang tersimpan.
   if (!fromAnomaliLink && !cariDariTopbar) {
     loadPesananFilters();
+    // filter tersimpan bisa saja berisi dari/sampai -- cocokkan dropdown periode
+    // dengan nilai yang akhirnya kepakai (bukan cuma default awal di atas).
+    const dv = document.getElementById("filter-dari").value;
+    const sv = document.getElementById("filter-sampai").value;
+    document.getElementById("filter-periode-pesanan").value = !dv && !sv ? "semua" : "custom";
   }
   loadOrders();
 
@@ -225,17 +236,22 @@ window.onAuthReady = function (profile) {
     listenCabangFilter();
   }
 
-  document.getElementById("filter-dari").addEventListener("change", () => {
+  function applyPesananDateChange() {
     currentPage = 1;
     clearQuickFilterActive();
     savePesananFilters();
     loadOrders();
-  });
-  document.getElementById("filter-sampai").addEventListener("change", () => {
-    currentPage = 1;
+  }
+  document.getElementById("filter-dari").addEventListener("change", applyPesananDateChange);
+  document.getElementById("filter-sampai").addEventListener("change", applyPesananDateChange);
+  // Dropdown Periode Cepat (Hari Ini/Minggu Ini/Bulan Ini/Rentang Tanggal.../Semua
+  // Waktu) -- SAMA seperti di Dashboard, Laporan, Laporan Keuangan, Pengeluaran &
+  // Arsip PO (lihat wireDateFilterPreset() di js/utils.js). Mengisi filter-dari &
+  // filter-sampai lalu langsung memuat ulang, kecuali pilih "Rentang Tanggal..."
+  // (nunggu user isi sendiri, seperti listener di atas).
+  wireDateFilterPreset("filter-periode-pesanan", "filter-dari", "filter-sampai", () => {
     clearQuickFilterActive();
-    savePesananFilters();
-    loadOrders();
+    applyPesananDateChange();
   });
   document.getElementById("filter-search").addEventListener("input", () => {
     currentPage = 1;
@@ -1198,12 +1214,12 @@ function renderDetailModal(order) {
       isOwner
         ? `
     <div style="display:flex; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-100);">
-      <a class="btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="flex:1; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
+      <a class="btn btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="flex:1; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
       <button class="btn-danger btn-sm" style="flex:1; justify-content:center;" onclick="closeDetailModal(); deleteOrder('${order.id}');"><i class="ph ph-trash"></i> Hapus</button>
     </div>`
         : `
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--gray-100);">
-      <a class="btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="width:100%; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
+      <a class="btn btn-secondary btn-sm" href="input-pesanan.html?edit=${order.id}" style="width:100%; justify-content:center;"><i class="ph ph-pencil-simple"></i> Edit Pesanan</a>
     </div>`
     }
   `;

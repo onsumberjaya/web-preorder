@@ -37,7 +37,7 @@
             <i class="ph-bold ph-funnel"></i> Filter
           </button>
           <button type="button" class="btn-secondary btn-sm" id="dash-statistik-toggle-btn" onclick="toggleStatistikBulanan()" title="Nyalakan/matikan Statistik Bulanan (tahun ini vs tahun lalu). Bawaan nonaktif karena membaca lebih banyak data."><i class="ph-bold ph-chart-line"></i> Statistik Bulanan: Nonaktif</button>
-          <a class="btn-secondary btn-sm" href="dashboard-kelola.html" title="Atur bagian Dashboard yang ditampilkan atau disembunyikan"><i class="ph-bold ph-sliders-horizontal"></i> Kelola Tampilan</a>
+          <a class="btn btn-secondary btn-sm" href="dashboard-kelola.html" title="Atur bagian Dashboard yang ditampilkan atau disembunyikan"><i class="ph-bold ph-sliders-horizontal"></i> Kelola Tampilan</a>
           <button class="btn-secondary btn-sm" id="dashboard-refresh-btn" onclick="refreshDashboard()"><i class="ph-bold ph-arrows-clockwise"></i> Muat Ulang</button>
         </div>
       </div>
@@ -45,13 +45,7 @@
 
       <div class="filter-box" id="dash-filter-toolbar" style="display:none;">
         <div class="toolbar">
-          <select id="filter-periode">
-            <option value="bulanan" selected>Bulan Ini</option>
-            <option value="harian">Hari Ini</option>
-            <option value="mingguan">7 Hari Terakhir</option>
-            <option value="custom">Rentang Tanggal...</option>
-            <option value="semua">Semua Waktu</option>
-          </select>
+          <select id="filter-periode"></select>
           <input type="date" id="filter-dari" style="display:none;" />
           <span id="dash-to-label" style="display:none;">s/d</span>
           <input type="date" id="filter-sampai" style="display:none;" />

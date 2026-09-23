@@ -30,6 +30,13 @@ window.onAuthReady = async function (profile) {
       document.getElementById("ar-restore-owner-only-note").style.display = "";
     }
 
+    // "Semua Waktu" sengaja tidak ditawarkan di sini (beda dari halaman filter
+    // lain) -- Dari/Sampai WAJIB diisi buat menentukan cakupan arsip (menentukan
+    // pesanan mana yang dihapus dari database), jadi "tanpa batas tanggal" tidak
+    // relevan/berbahaya di halaman ini.
+    document.getElementById("ar-periode").innerHTML = dateFilterOptionsHtml("custom", ["semua"]);
+    wireDateFilterPreset("ar-periode", "ar-dari", "ar-sampai");
+
     const [prodSnap, cabangSnap, tokoDoc] = await Promise.all([
       db.collection("products").orderBy("nama").get(),
       db.collection("cabang").orderBy("nama").get(),

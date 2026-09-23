@@ -269,6 +269,7 @@ window.onAuthReady = async function (profile) {
   dashProfile = profile;
   dashPrefs = loadDashPrefs(profile.uid); // pengaturan Kelola Tampilan (bagian yang disembunyikan, statistik bulanan)
   updateStatistikToggleButton();
+  document.getElementById("filter-periode").innerHTML = dateFilterOptionsHtml("bulanan"); // opsi filter tanggal SAMA di semua halaman -- lihat utils.js
   loadDashboardData(profile);
 
   document.getElementById("filter-periode").addEventListener("change", (e) => {
@@ -299,29 +300,26 @@ function debounceDashRender() {
   dashDebounceTimer = setTimeout(renderDashboard, 200);
 }
 
+// "Hari Ini"/"Minggu Ini"/"Bulan Ini"/"Semua Waktu" dihitung lewat helper
+// bersama dateFilterRangeStrings() di utils.js (SAMA persis dengan yang
+// dipakai Daftar Pesanan, Laporan, Laporan Keuangan, Pengeluaran & Arsip PO)
+// -- "Minggu Ini" sekarang minggu kalender (Senin s/d Minggu), bukan lagi "7
+// hari terakhir" bergulir. Dashboard sendiri tidak menampilkan 2 input
+// tanggalnya secara visual untuk mode preset (cuma "Rentang Tanggal..." yang
+// menampilkannya), jadi hasil preset di sini dipakai langsung tanpa menulis
+// ke input filter-dari/filter-sampai.
 function getDateRange() {
   const mode = document.getElementById("filter-periode").value;
-  const now = new Date();
-  let from = null;
-  let to = null;
-  if (mode === "harian") {
-    from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-  } else if (mode === "mingguan") {
-    from = new Date(now);
-    from.setDate(now.getDate() - 6);
-    from.setHours(0, 0, 0, 0);
-    to = now;
-  } else if (mode === "bulanan") {
-    from = new Date(now.getFullYear(), now.getMonth(), 1);
-    to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-  } else if (mode === "custom") {
+  if (mode === "custom") {
     const dariVal = document.getElementById("filter-dari").value;
     const sampaiVal = document.getElementById("filter-sampai").value;
-    from = dariVal ? new Date(dariVal + "T00:00:00") : null;
-    to = sampaiVal ? new Date(sampaiVal + "T23:59:59") : null;
+    return { from: dariVal ? new Date(dariVal + "T00:00:00") : null, to: sampaiVal ? new Date(sampaiVal + "T23:59:59") : null };
   }
-  return { from, to };
+  const range = dateFilterRangeStrings(mode); // { dari, sampai } string YYYY-MM-DD, atau {dari:"",sampai:""} utk "semua"
+  return {
+    from: range.dari ? new Date(range.dari + "T00:00:00") : null,
+    to: range.sampai ? new Date(range.sampai + "T23:59:59") : null,
+  };
 }
 
 // Rentang tanggal & Cabang (kalau dipilih) SUDAH dibatasi di query Firestore
@@ -489,7 +487,7 @@ function renderDashboard() {
             <p style="font-size:12.5px; color:var(--gray-500); margin:2px 0 0;">Total/harga per item tidak cocok dengan data produk saat ini atau tidak konsisten secara hitungan -- cek satu per satu, mungkin memang wajar (harga produk berubah setelah pesanan dibuat), tapi layak dipastikan.</p>
           </div>
         </div>
-        <a href="pesanan.html?anomali=1" class="btn-secondary btn-sm" style="white-space:nowrap;">Cek di Daftar Pesanan</a>
+        <a href="pesanan.html?anomali=1" class="btn btn-secondary btn-sm" style="white-space:nowrap;">Cek di Daftar Pesanan</a>
       </div>
     </div>` : ""}
     <div class="grid grid-5" style="margin-bottom:20px;">

@@ -576,25 +576,9 @@ service cloud.firestore {
       }
     }
 
-    // PERBAIKAN (bug kritis): rule "read" di dalam match /payments/{paymentId}
-    // di atas HANYA berlaku untuk akses subcollection LANGSUNG lewat path
-    // spesifik (orders/{orderId}/payments/...) -- rule bersarang seperti itu
-    // TIDAK OTOMATIS berlaku untuk query collectionGroup("payments") (dipakai
-    // js/laporan-keuangan.js, tab "Buku Kas", untuk membaca riwayat
-    // pembayaran dari SEMUA pesanan sekaligus supaya bisa diurut per tanggal
-    // pembayaran sebenarnya). Firestore Rules mewajibkan rule TERPISAH dengan
-    // sintaks wildcard rekursif "{path=**}" khusus untuk query lintas-koleksi
-    // seperti ini -- tanpa rule ini, collectionGroup("payments") SELALU
-    // ditolak "Missing or insufficient permissions", walau rule di atas
-    // sudah benar untuk pemakaian normal (Catat Pembayaran per pesanan).
-    // Cuma "read" yang dibuka di sini (collection group cuma dipakai untuk
-    // BACA), dikunci ke Owner & Admin Kasir saja -- sesuai
-    // data-allowed-roles="owner,admin_kasir" di laporan-keuangan.html, satu-
-    // satunya halaman yang memakai query ini. Penulisan pembayaran
-    // (create/update/delete) TETAP lewat rule di atas, tidak berubah sama
-    // sekali oleh rule tambahan ini.
-    match /{path=**}/payments/{paymentId} {
-      allow read: if isOwner() || isAdminKasir();
-    }
+    // (Perbaikan tahap 13: blok ini dulu ADA DUA -- lihat catatan panjang di
+    // atas dekat "match /{path=**}/payments/{paymentId}" pertama. Isinya
+    // 100% sama (canAccessAllBranches() == isOwner() || isAdminKasir()),
+    // jadi digabung jadi satu; tidak ada perubahan izin akses.)
   }
 }
