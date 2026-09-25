@@ -959,6 +959,12 @@ async function toggleSingleDiambil(id) {
       is_diambil: newValue,
       tanggal_ambil: newValue ? firebase.firestore.FieldValue.serverTimestamp() : null,
     });
+    // Sinkronkan juga /orders_public/{id} -- best-effort, tidak membatalkan
+    // update utama di atas kalau ini gagal (mis. dokumen publiknya belum
+    // pernah dibuat karena pesanan sangat lama dari sebelum fitur ini ada).
+    publicOrderStatusRef(id)
+      .set({ is_diambil: newValue, updated_at: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true })
+      .catch(() => {});
   } catch (err) {
     o.is_diambil = oldValue.is_diambil;
     o.tanggal_ambil = oldValue.tanggal_ambil;
@@ -1001,6 +1007,8 @@ async function bulkAction(value) {
       is_diambil: value,
       tanggal_ambil: value ? firebase.firestore.FieldValue.serverTimestamp() : null,
     });
+    // Sinkronkan juga /orders_public/{id} -- lihat catatan di toggleSingleDiambil().
+    batch.set(publicOrderStatusRef(id), { is_diambil: value, updated_at: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
   });
 
   try {
@@ -1264,6 +1272,9 @@ function renderDetailModal(order) {
           // last_payment_id = id dokumen payment yang dibuat di transaksi yang SAMA -- dipakai
           // Firestore Rules untuk memastikan kenaikan paid_amount selalu ada payment-nya.
           tx.update(orderRef, { paid_amount: newPaid, status_bayar: newStatus, last_payment_id: paymentRef.id });
+          // Sinkronkan juga /orders_public/{id} -- lihat catatan di
+          // buildPublicOrderStatusData() (js/utils.js).
+          tx.set(publicOrderStatusRef(order.id), buildPublicOrderStatusData({ ...freshOrder, paid_amount: newPaid, status_bayar: newStatus }));
           return { ...order, paid_amount: newPaid, status_bayar: newStatus };
         });
         showToast("Pembayaran tercatat.", "success");

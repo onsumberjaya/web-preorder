@@ -476,6 +476,7 @@ async function restoreArsipData() {
       const orderData = tsPlainToFirestore(orderFieldsPlain);
       const batch = db.batch();
       batch.set(orderRef, orderData);
+      batch.set(publicOrderStatusRef(id), buildPublicOrderStatusData(orderData));
       (__payments || []).forEach((p) => {
         const { id: paymentId, ...paymentFieldsPlain } = p;
         batch.set(orderRef.collection("payments").doc(paymentId), tsPlainToFirestore(paymentFieldsPlain));

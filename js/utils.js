@@ -569,12 +569,62 @@ async function deleteOrderCascade(id) {
 
     paymentsSnap.docs.forEach((d) => tx.delete(d.ref));
     tx.delete(orderRef);
+    tx.delete(publicOrderStatusRef(id));
 
     // Rekap stats/produk_cabang & stats/produk_gelombang: kurangi qty
     // pesanan yang dihapus ini dari kedua rekap sekaligus.
     applyProdukCabangStatsDelta(tx, order.cabang_id, negateQtyMap(aggregateQtyByProduct(order.items)));
     applyProdukGelombangStatsDelta(tx, negateQtyMap(aggregateQtyByWave(order.items)));
   });
+}
+
+// ==========================================================================
+// STATUS PESANAN PUBLIK (fitur QR code di nota A4) -- ringkasan pesanan
+// yang SENGAJA disalin ke koleksi terpisah /orders_public/{orderId} supaya
+// bisa dibaca TANPA login lewat halaman status.html (link di QR code nota).
+// HANYA berisi field yang perlu ditampilkan ke pembeli -- alamat lengkap,
+// no_hp PENUH, cabang_id, created_by, edit_log TIDAK ikut disalin ke sini,
+// supaya kalau ID pesanan (dipakai sebagai ID dokumen Firestore acak, lihat
+// js/input-pesanan.js) bocor ke orang lain, yang kelihatan cuma ringkasan
+// status -- bukan data pribadi lengkap. no_hp cuma disimpan 4 digit
+// terakhirnya (no_hp_last4), dipakai js/status.js sebagai verifikasi ringan
+// sebelum menampilkan detail (dilewati otomatis kalau pesanan memang tidak
+// punya no_hp -- lihat catatan di status.js).
+//
+// Ditulis ULANG (set, timpa penuh -- bukan sekadar tambah field baru) tiap
+// kali pesanan dibuat/diedit/dicatat pembayarannya/ditandai diambil/dihapus
+// -- dipanggil dari titik yang SAMA dengan penulisan ke /orders/{orderId}
+// (js/input-pesanan.js & js/pesanan.js) supaya selalu ikut sinkron. Kalau
+// ada titik penulisan pesanan baru di masa depan yang lupa memanggil ini,
+// akibatnya HANYA halaman status publik jadi usang/kosong -- data pesanan
+// asli di /orders tidak terpengaruh sama sekali.
+function buildPublicOrderStatusData(order) {
+  const noHp = order.no_hp || "";
+  return {
+    nama_pembeli: order.nama_pembeli || "",
+    no_hp_last4: noHp.slice(-4),
+    tanggal: order.tanggal || null,
+    order_no: order.order_no != null ? order.order_no : null,
+    nota_tahun: order.nota_tahun != null ? order.nota_tahun : null,
+    nota_seq: order.nota_seq != null ? order.nota_seq : null,
+    items: (order.items || []).map((it) => ({
+      product_name: it.product_name,
+      wave_label: it.wave_label,
+      jumlah: it.jumlah,
+      harga_satuan: it.harga_satuan,
+      subtotal: it.subtotal,
+    })),
+    total: order.total || 0,
+    paid_amount: order.paid_amount || 0,
+    status_bayar: order.status_bayar,
+    catatan: order.catatan || "",
+    is_diambil: !!order.is_diambil,
+    updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
+function publicOrderStatusRef(orderId) {
+  return db.collection("orders_public").doc(orderId);
 }
 
 // ---------- Serialisasi Timestamp Firestore untuk file Backup Arsip PO ----------

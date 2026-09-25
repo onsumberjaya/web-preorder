@@ -27,6 +27,17 @@ const firebaseConfig = {
 // Boleh diganti sesuai selera, tidak perlu domain asli.
 const FAKE_EMAIL_DOMAIN = "benihpreorder.local";
 
+// Dipakai fitur QR Code di nota A4 (lihat js/nota.js) -- diarahkan ke
+// halaman status.html di situs yang sama, supaya pembeli bisa cek status
+// pesanannya cukup dengan scan QR di nota fisik, tanpa perlu login/buka
+// aplikasi. GANTI dengan alamat situs Anda sendiri persis sampai ke
+// "status.html" (JANGAN diakhiri tanda "/" tambahan). Kalau situs ini
+// di-hosting di GitHub Pages seperti bawaan project ini, bentuknya biasanya:
+// https://USERNAME.github.io/NAMA-REPO/status.html
+// Selama masih diawali "GANTI_", QR code TIDAK akan dicetak di nota (supaya
+// tidak mengarahkan pembeli ke link yang salah/belum ada sebelum Anda isi).
+const PUBLIC_STATUS_BASE_URL = https://onsumberjaya.github.io/web-preorder/status.html;
+
 // (Opsional -- SEKARANG TIDAK DISARANKAN, lihat PANDUAN-SETUP.md Bagian 1f)
 // App Check. Sejak April 2026 Google mengubah reCAPTCHA: pendaftaran key v3
 // klasik gratis penuh sudah ditutup, diganti reCAPTCHA Enterprise yang

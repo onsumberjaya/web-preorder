@@ -2,6 +2,7 @@ const NAV_ITEMS = [
   { href: "toko.html", icon: "ph-storefront", label: "Profil Toko", ownerOnly: true },
   { href: "cabang.html", icon: "ph-git-branch", label: "Kelola Cabang", ownerOnly: true },
   { href: "pengguna.html", icon: "ph-users-three", label: "Akun Pengguna", ownerOnly: true },
+  { href: "migrasi-status-publik.html", icon: "ph-qr-code", label: "Migrasi Status Publik", ownerOnly: true },
   { href: "dashboard.html", icon: "ph-chart-line-up", label: "Dashboard", ownerOnly: false },
   { href: "input-pesanan.html", icon: "ph-plus-circle", label: "Input Pesanan", ownerOnly: false },
   { href: "pesanan.html", icon: "ph-clipboard-text", label: "Daftar Pesanan", ownerOnly: false },

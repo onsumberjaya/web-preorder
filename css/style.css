@@ -547,6 +547,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13.5px; margin-bottom: 14px; font-weight: 500; }
 .alert-error { background: var(--red-50); color: var(--red-600); }
+.alert-warning { background: #fffbeb; color: #92400e; }
 .alert-success { background: var(--brand-50); color: var(--brand-ink); }
 .alert-info { background: var(--blue-50); color: var(--blue-700); }
 
@@ -875,6 +876,23 @@ table tbody tr:hover { background: var(--gray-50); }
 .nota-a4 table { font-size: 11.5px; }
 .nota-a4 table td, .nota-a4 table th { padding: 3px 2px; border-bottom: none; }
 .nota-a4 thead tr { border-bottom: 1px solid #000; }
+
+/* Proteksi overflow (lihat js/nota.js) -- dipakai otomatis kalau jumlah baris
+   produk melebihi 10, supaya tabel tetap muat di tinggi nota yang tetap
+   (148.5mm) alih-alih terpotong diam-diam (overflow:hidden di atas). */
+.nota-a4.nota-dense-1 table { font-size: 10.5px; }
+.nota-a4.nota-dense-1 table td, .nota-a4.nota-dense-1 table th { padding: 2px; }
+
+.nota-a4.nota-dense-2 table { font-size: 9.5px; }
+.nota-a4.nota-dense-2 table td, .nota-a4.nota-dense-2 table th { padding: 1.5px; }
+.nota-a4.nota-dense-2 { padding-top: 5mm; }
+.nota-a4.nota-dense-2 h2 { font-size: 14px; }
+
+.nota-a4.nota-dense-3 table { font-size: 8.5px; }
+.nota-a4.nota-dense-3 table td, .nota-a4.nota-dense-3 table th { padding: 1px; }
+.nota-a4.nota-dense-3 { padding-top: 4mm; padding-bottom: 4mm; }
+.nota-a4.nota-dense-3 h2 { font-size: 13px; }
+.nota-a4.nota-dense-3 p { margin: 0 !important; }
 .nota-dm { width: 68mm; margin: 0 auto; padding: 2mm 4mm; background: #fff; font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif; font-size: 13.5px; font-weight: 400; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .nota-dm table { font-size: 13px; width: 100%; font-weight: 400; }
 .nota-dm td, .nota-dm th { padding: 2px 0; border: none; }

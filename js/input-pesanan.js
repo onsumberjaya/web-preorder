@@ -967,6 +967,26 @@ async function handleSubmit(e) {
           status_bayar: computeStatusBayar(total, freshPaidAmount),
           edit_log: editLog,
         });
+
+        // Sinkronkan juga /orders_public/{id} -- lihat catatan di
+        // buildPublicOrderStatusData() (js/utils.js).
+        tx.set(
+          publicOrderStatusRef(editOrderId),
+          buildPublicOrderStatusData({
+            nama_pembeli: namaPembeli,
+            no_hp: noHp,
+            tanggal,
+            order_no: freshOrder.order_no,
+            nota_tahun: freshOrder.nota_tahun,
+            nota_seq: freshOrder.nota_seq,
+            items: itemsData,
+            total,
+            paid_amount: freshPaidAmount,
+            status_bayar: computeStatusBayar(total, freshPaidAmount),
+            catatan,
+            is_diambil: freshOrder.is_diambil,
+          })
+        );
       });
       showToast("Pesanan berhasil diperbarui.", "success");
       window.location.href = "pesanan.html";
@@ -1015,6 +1035,27 @@ async function handleSubmit(e) {
         created_by_name: profile.full_name,
         created_at: firebase.firestore.FieldValue.serverTimestamp(),
       });
+
+      // Salin ringkasan pesanan ini ke /orders_public/{id} -- dipakai halaman
+      // status.html publik (link di QR code nota A4). Lihat catatan lengkap
+      // di buildPublicOrderStatusData() (js/utils.js).
+      tx.set(
+        publicOrderStatusRef(newOrderRef.id),
+        buildPublicOrderStatusData({
+          nama_pembeli: namaPembeli,
+          no_hp: noHp,
+          tanggal,
+          order_no: orderNo,
+          nota_tahun: year,
+          nota_seq: notaSeq,
+          items: itemsData,
+          total,
+          paid_amount: paidAmount,
+          status_bayar: computeStatusBayar(total, paidAmount),
+          catatan,
+          is_diambil: false,
+        })
+      );
 
       if (paymentRef) {
         tx.set(paymentRef, {

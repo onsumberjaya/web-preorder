@@ -56,7 +56,7 @@ function renderNota() {
   const items = o.items || [];
   const sisa = o.total - (o.paid_amount || 0);
 
-  const MIN_BARIS_A4 = 10;
+  const MIN_BARIS_A4 = 5;
   const itemRowsA4Isi = items
     .map(
       (it, i) => `
@@ -85,6 +85,25 @@ function renderNota() {
     )
     .join("");
   const itemRowsA4 = itemRowsA4Isi + itemRowsA4Kosong;
+
+  // PROTEKSI OVERFLOW: tinggi nota A4 tetap (setengah halaman, lihat CSS
+  // .nota-a4) -- kalau produknya lebih dari MIN_BARIS_A4 (10) baris, tabel
+  // otomatis dipadatkan (font & padding sel diperkecil bertahap) supaya
+  // tetap muat, alih-alih diam-diam terpotong di bagian bawah nota (CSS
+  // .nota-a4 pakai overflow:hidden). Di atas ambang tertentu, tetap
+  // ditampilkan peringatan di LAYAR (tidak ikut tercetak) supaya kasir sadar
+  // dan bisa mempertimbangkan memecah pesanan itu jadi 2 nota.
+  let notaA4DenseClass = "";
+  let notaA4Peringatan = "";
+  if (items.length > 24) {
+    notaA4DenseClass = "nota-dense-3";
+    notaA4Peringatan = `<div class="alert alert-error no-print" style="margin:10px auto; max-width:210mm;">Pesanan ini punya ${items.length} baris produk -- kemungkinan besar TIDAK muat rapi walau sudah dipadatkan maksimal. Pertimbangkan pecah jadi 2 nota terpisah.</div>`;
+  } else if (items.length > 17) {
+    notaA4DenseClass = "nota-dense-3";
+    notaA4Peringatan = `<div class="alert alert-warning no-print" style="margin:10px auto; max-width:210mm;">Pesanan ini punya ${items.length} baris produk -- tabel sudah dipadatkan otomatis, cek dulu hasil preview sebelum benar-benar dicetak.</div>`;
+  } else if (items.length > 10) {
+    notaA4DenseClass = items.length > 13 ? "nota-dense-2" : "nota-dense-1";
+  }
 
   const itemRowsDm = items
     .map(
@@ -143,14 +162,34 @@ function renderNota() {
         <div style="width:45%; min-width:0;">
           <div style="display:flex; justify-content:space-between;"><span>Total</span><strong>${formatRupiah(o.total)}</strong></div>
           <div style="display:flex; justify-content:space-between;"><span>Sudah Dibayar</span><span>${formatRupiah(o.paid_amount || 0)}</span></div>
-          <div style="display:flex; justify-content:space-between; font-size:15px;"><strong>Sisa</strong><strong>${formatRupiah(sisa)}</strong></div>
+          <div style="display:flex; justify-content:space-between; font-size:15px;${o.status_bayar !== "lunas" ? " color:#dc2626;" : ""}"><strong>Sisa</strong><strong>${formatRupiah(sisa)}</strong></div>
         </div>
       </div>
-      <p style="text-align:center; margin-top:10px; color:#555; font-size:11px;">Terima kasih atas pesanan Anda</p>
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:12px;">
+        <div style="display:flex; gap:8mm;">
+          <div style="width:38mm; text-align:center; font-size:9.5px; color:#555;">
+            <div style="border-bottom:1px solid #999; height:11mm; margin-bottom:3px;"></div>
+            Adm. Penjualan
+          </div>
+          <div style="width:38mm; text-align:center; font-size:9.5px; color:#555;">
+            <div style="border-bottom:1px solid #999; height:11mm; margin-bottom:3px;"></div>
+            Penerima
+          </div>
+        </div>
+        <p style="margin:0; color:#555; font-size:11px;">Terima kasih atas pesanan Anda</p>
+        ${
+          typeof PUBLIC_STATUS_BASE_URL === "string" && PUBLIC_STATUS_BASE_URL && !PUBLIC_STATUS_BASE_URL.startsWith("GANTI_")
+            ? `<div class="nota-qr-slot" data-order-id="${o.id}" style="text-align:center;">
+                 <div class="nota-qr-box" style="width:16mm; height:16mm;"></div>
+               </div>`
+            : ""
+        }
+      </div>
   `;
 
   document.getElementById("nota-container").innerHTML = `
-    <div class="nota-a4">${notaA4Body}</div>
+    ${notaA4Peringatan}
+    <div class="nota-a4 ${notaA4DenseClass}">${notaA4Body}</div>
 
     <div class="nota-dm">
       <div style="text-align:center;">
@@ -179,6 +218,81 @@ function renderNota() {
       <div style="text-align:center;">Terima kasih</div>
     </div>
   `;
+
+  renderNotaQrCodes();
+}
+
+// Menggambar QR code (kalau PUBLIC_STATUS_BASE_URL sudah diisi di
+// js/firebase-config.js) ke setiap ".nota-qr-slot" yang ada di nota --
+// dipisah dari template string di atas karena perlu memanggil library
+// js/vendor/qrcode.js (butuh elemen DOM sudah ada di halaman, tidak bisa
+// dijadikan bagian dari string HTML biasa). Isi QR: link ke status.html
+// dengan ID pesanan (ID dokumen Firestore -- sudah acak/tidak bisa ditebak
+// secara bawaan) sebagai parameter "id".
+function renderNotaQrCodes() {
+  document.querySelectorAll(".nota-qr-slot").forEach((slot) => {
+    const orderId = slot.getAttribute("data-order-id");
+    const box = slot.querySelector(".nota-qr-box");
+    if (!orderId || !box || typeof qrcode !== "function") return;
+    try {
+      // Level "H" (bukan "M") -- toleransi kerusakan/tutupan naik jadi
+      // ~30%, supaya aman dipasangi logo toko di tengah (di bawah) tanpa
+      // bikin QR gagal discan.
+      const qr = qrcode(0, "H");
+      qr.addData(`${PUBLIC_STATUS_BASE_URL}?id=${encodeURIComponent(orderId)}`);
+      qr.make();
+      box.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true });
+      const svg = box.querySelector("svg");
+      if (svg) {
+        svg.style.width = "100%";
+        svg.style.height = "100%";
+        svg.style.display = "block";
+        sisipkanLogoDiTengahQr(svg);
+      }
+    } catch (err) {
+      console.warn("Gagal membuat QR code nota:", err);
+    }
+  });
+}
+
+// Menyisipkan logo toko (lingkaran putih + inisial "SJ") persis di tengah
+// QR. Aman karena: (1) error correction sudah dinaikkan ke level H di atas,
+// (2) logo dibatasi ~20% lebar QR, (3) posisinya tepat di tengah -- area
+// paling toleran menampung kerusakan/tutupan, jauh dari 3 kotak "mata" di
+// pojok yang krusial untuk orientasi pemindaian.
+function sisipkanLogoDiTengahQr(svg) {
+  const vb = (svg.getAttribute("viewBox") || "").split(" ").map(Number);
+  const size = vb[2];
+  if (!size) return;
+  const logoSize = size * 0.2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const bgR = (logoSize / 2) * 1.25;
+  const ns = "http://www.w3.org/2000/svg";
+
+  const defs = document.createElementNS(ns, "defs");
+  defs.innerHTML =
+    '<linearGradient id="notaQrLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">' +
+    '<stop offset="0%" style="stop-color:#16a34a;" />' +
+    '<stop offset="100%" style="stop-color:#86efac;" />' +
+    "</linearGradient>";
+  svg.appendChild(defs);
+
+  const bgCircle = document.createElementNS(ns, "circle");
+  bgCircle.setAttribute("cx", cx);
+  bgCircle.setAttribute("cy", cy);
+  bgCircle.setAttribute("r", bgR);
+  bgCircle.setAttribute("fill", "#fff");
+  svg.appendChild(bgCircle);
+
+  const logoScale = logoSize / 120;
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("transform", `translate(${cx - logoSize / 2},${cy - logoSize / 2}) scale(${logoScale})`);
+  g.innerHTML =
+    '<path d="M60 8 L6 66 C6 76 14 82 24 82 Q60 145 96 82 C106 82 114 76 114 66 Z" fill="url(#notaQrLogoGrad)" />' +
+    '<circle cx="60" cy="86" r="24" fill="#fff" stroke="url(#notaQrLogoGrad)" stroke-width="3" />' +
+    '<text x="60" y="93" text-anchor="middle" font-family="Inter, sans-serif" font-weight="800" font-size="22" fill="url(#notaQrLogoGrad)">SJ</text>';
+  svg.appendChild(g);
 }
 
 function doPrint(mode) {

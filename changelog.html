@@ -57,8 +57,24 @@
       <div class="card">
         <div class="changelog-entry">
           <div class="changelog-version-row">
-            <h2>Versi 1.9</h2>
+            <h2>Versi 1.10</h2>
             <span class="changelog-badge-new">Terbaru</span>
+          </div>
+          <ul class="changelog-list">
+            <li><strong>Cetak Nota A4 dirombak jadi setengah halaman</strong> (210 x 148,5mm, ditempatkan di bagian atas kertas) -- sisa setengah kertas di bawahnya dibiarkan kosong supaya bisa dipakai cetak nota berikutnya (hemat kertas). Semua jarak/padding dipadatkan menyesuaikan ukuran baru ini.</li>
+            <li>Kolom Total/Sudah Dibayar/Sisa dipindah ke kanan; kolom kiri yang tadinya kosong sekarang menampilkan <strong>Catatan</strong> pesanan (kalau diisi saat input pesanan).</li>
+            <li>Tabel produk di nota A4 sekarang selalu menampilkan minimal <strong>5 baris</strong> (baris kosong ditambahkan otomatis kalau produknya sedikit) supaya tampilan tetap rapi. Kalau produknya lebih dari 10 baris, ukuran font & padding tabel otomatis dipadatkan bertahap supaya tetap muat -- di atas 17 baris muncul peringatan di layar (tidak ikut tercetak) menyarankan pecah jadi 2 nota.</li>
+            <li>Nota A4 sekarang punya <strong>2 kolom tanda tangan</strong> ("Adm. Penjualan" & "Penerima"), dan angka "Sisa" otomatis ditulis <strong>merah</strong> kalau status pembayarannya belum Lunas.</li>
+            <li>Cetak Dot Matrix: baris Catatan sekarang juga ikut ditampilkan (kalau diisi), di antara ringkasan Total/Bayar/Sisa dan baris "Terima kasih".</li>
+            <li><strong>Fitur baru: QR Code &amp; Cek Status Pesanan Publik.</strong> Nota A4 sekarang mencetak QR code (dengan logo toko di tengahnya) yang mengarah ke halaman status pesanan -- pembeli tinggal scan dari HP untuk melihat status pembayaran, daftar produk, dan status pengambilan, tanpa perlu login atau buka aplikasi. Kalau pesanannya punya nomor HP, pembeli diminta memasukkan 4 digit terakhir HP-nya dulu sebagai verifikasi ringan; kalau pesanan tidak punya nomor HP, status langsung ditampilkan. Halaman ini juga menampilkan tombol chat WhatsApp ke toko.</li>
+            <li>Perlu langkah setup sekali: isi <code>PUBLIC_STATUS_BASE_URL</code> di <code>js/firebase-config.js</code> dengan alamat situs Anda, dan deploy ulang <code>firestore.rules</code> (ada aturan baru untuk koleksi <code>orders_public</code> dan akses baca publik khusus profil toko).</li>
+            <li>Halaman &amp; menu baru khusus Owner: <strong>Migrasi Status Publik</strong> -- alat sekali-jalan untuk menyinkronkan pesanan-pesanan lama (yang dibuat sebelum fitur QR ini ada) supaya QR di nota lama juga bisa dipakai cek status. Aman dijalankan berkali-kali.</li>
+          </ul>
+        </div>
+
+        <div class="changelog-entry">
+          <div class="changelog-version-row">
+            <h2>Versi 1.9</h2>
           </div>
           <ul class="changelog-list">
             <li>Animasi loading diseragamkan: kotak abu-abu berkedip ("skeleton") di Daftar Pesanan, Laporan, Dashboard, Arsip PO, Pengeluaran, dan Laporan Keuangan sekarang diganti spinner titik muter -- sama dengan animasi saat halaman pertama kali dibuka.</li>

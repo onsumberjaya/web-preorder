@@ -196,6 +196,17 @@ service cloud.firestore {
           || keys.hasOnly(['tanggal', 'nama_pembeli', 'alamat', 'no_hp', 'catatan', 'items', 'total', 'status_bayar', 'edit_log']);
     }
 
+    // Profil toko: nama/alamat/no. HP dipakai juga di halaman status publik
+    // (status.html, dibuka lewat scan QR di nota -- lihat js/status.js)
+    // supaya bisa menampilkan kop toko & tombol WhatsApp tanpa perlu login.
+    // Dibuat match TERPISAH & SESEMPIT MUNGKIN (cuma path persis
+    // "config/toko", bukan seluruh koleksi config/*) supaya dokumen config
+    // lain (mis. config/migrasi_status, yang isinya status migrasi internal)
+    // TETAP tertutup dari akses publik.
+    match /config/toko {
+      allow get: if true;
+    }
+
     // Profil toko: semua yang login DAN masih aktif boleh baca, hanya Owner boleh ubah.
     match /config/{docId} {
       allow read: if isSignedIn() && isActiveUser();
@@ -457,6 +468,25 @@ service cloud.firestore {
     // tidak tercampur ke kas masuk.
     match /{path=**}/pembayaran/{pembayaranId} {
       allow read: if isSignedIn() && isActiveUser() && (isOwner() || isAdminKasir());
+    }
+
+    // Status pesanan publik (fitur QR code di nota A4, lihat js/status.js &
+    // buildPublicOrderStatusData() di js/utils.js) -- ringkasan pesanan yang
+    // SENGAJA dipisah dari /orders supaya bisa dibaca SIAPA SAJA tanpa login
+    // (dibuka lewat scan QR di nota fisik), TAPI isinya sudah sengaja
+    // dipangkas di sisi aplikasi (alamat & no_hp penuh, cabang_id, created_by,
+    // edit_log semua TIDAK ikut disalin -- lihat komentar di utils.js) supaya
+    // ID pesanan yang bocor/ketebak cuma membuka ringkasan status, bukan data
+    // pribadi lengkap. "get" (baca 1 dokumen by ID) dibuka untuk semua orang;
+    // "list" (query/enumerasi seluruh koleksi) TETAP DITUTUP -- tanpa tahu ID
+    // persis (dari QR/link), tidak ada cara melihat daftar pesanan siapa pun.
+    // Penulisan tetap wajib login (hanya aplikasi yang menulis ke sini,
+    // dipanggil bersamaan dengan penulisan ke /orders -- lihat titik-titik
+    // panggilan di js/input-pesanan.js & js/pesanan.js).
+    match /orders_public/{orderId} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if isSignedIn() && isActiveUser();
     }
 
     match /orders/{orderId} {
