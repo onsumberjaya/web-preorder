@@ -36,7 +36,7 @@ const FAKE_EMAIL_DOMAIN = "benihpreorder.local";
 // https://USERNAME.github.io/NAMA-REPO/status.html
 // Selama masih diawali "GANTI_", QR code TIDAK akan dicetak di nota (supaya
 // tidak mengarahkan pembeli ke link yang salah/belum ada sebelum Anda isi).
-const PUBLIC_STATUS_BASE_URL ="https://onsumberjaya.github.io/web-preorder/status.html";
+const PUBLIC_STATUS_BASE_URL = "https://onsumberjaya.github.io/web-preorder/status.html";
 
 // (Opsional -- SEKARANG TIDAK DISARANKAN, lihat PANDUAN-SETUP.md Bagian 1f)
 // App Check. Sejak April 2026 Google mengubah reCAPTCHA: pendaftaran key v3

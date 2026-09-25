@@ -81,6 +81,11 @@ function waLink(noHp, message) {
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+// Ringkasan "Produk x Jumlah" buat disisipkan ke pesan WhatsApp.
+function ringkasItemsUntukWa(items) {
+  return (items || []).map((it) => `${it.product_name} x${it.jumlah}`).join(", ") || "-";
+}
+
 function waBarHtml(message) {
   if (!statusToko.no_hp) return ""; // belum ada nomor WA toko dikonfigurasi -- jangan tampilkan tombol yang tidak bisa dipakai
   return `
@@ -159,6 +164,12 @@ function renderDetail(contentEl, data) {
     <div class="info-note">Kami akan menginformasikan lewat WhatsApp begitu barang pesanan Anda sudah datang / siap diambil.</div>
     <p class="thanks-note">Terima kasih atas pesanan Anda &#128591;</p>
     ${data.updated_at ? `<div class="updated-at">Diperbarui ${formatTanggalWaktu(data.updated_at)}</div>` : ""}
-    ${waBarHtml(`Halo, saya mau tanya soal pesanan ${formatOrderNo(data)}.`)}
+    ${waBarHtml(
+      `Halo, saya mau tanya soal pesanan saya:\n` +
+        `Nama: ${data.nama_pembeli || "-"}\n` +
+        `Jumlah Pesanan: ${ringkasItemsUntukWa(data.items)}\n` +
+        `Status Pembayaran: ${label}\n` +
+        `Tanggal Pesan: ${data.tanggal ? formatTanggal(data.tanggal) : "-"}`
+    )}
   `;
 }

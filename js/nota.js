@@ -123,7 +123,7 @@ function renderNota() {
         <h2 style="margin:0; font-size:16px;">${escapeHtml(notaToko.nama || "Toko Benih")}</h2>
         <p style="margin:1px 0; font-size:11px;">${escapeHtml(notaToko.alamat || "")}</p>
         <p style="margin:1px 0; font-size:11px;">${escapeHtml(notaToko.no_hp || "")}</p>
-        <p style="margin:4px 0 0; font-weight:700; letter-spacing:1px; font-size:12px;">NOTA PREORDER</p>
+        <p style="margin:4px 0 3px; font-weight:700; letter-spacing:1px; font-size:12px;">NOTA PREORDER</p>
       </div>
       <div style="display:flex; margin-bottom:8px;">
         <div style="width:35%; min-width:0;">

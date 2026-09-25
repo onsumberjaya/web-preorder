@@ -729,22 +729,19 @@ function ringkasProduk(order) {
 }
 
 function pesanWaSiapDiambil(order) {
-  const sisa = order.total - (order.paid_amount || 0);
   return (
-    `Halo ${order.nama_pembeli} 👋\n\n` +
+    `Halo Bapak/Ibu ${order.nama_pembeli} 👋\n\n` +
     `Pesanan preorder Anda di *${tokoProfil.nama}* sudah *siap diambil*.\n\n` +
     `No. Nota: ${formatOrderNo(order)}\n` +
-    `Produk: ${ringkasProduk(order)}\n` +
-    `Total: ${formatRupiah(order.total)}` +
-    (sisa > 0 ? `\nSisa Bayar: ${formatRupiah(sisa)} (mohon dilunasi saat pengambilan)` : "") +
-    `\n\nSilakan diambil di jam operasional toko ya. Terima kasih! 🙏`
+    `Jumlah Pesanan: ${ringkasProduk(order)}\n\n` +
+    `Silakan diambil di jam operasional toko ya. Terima kasih! 🙏`
   );
 }
 
 function pesanWaReminderTagihan(order) {
   const sisa = order.total - (order.paid_amount || 0);
   return (
-    `Halo ${order.nama_pembeli} 👋\n\n` +
+    `Halo Bapak/Ibu ${order.nama_pembeli} 👋\n\n` +
     `Ini pengingat untuk pesanan Anda di *${tokoProfil.nama}* yang masih ada tunggakan pembayaran.\n\n` +
     `No. Nota: ${formatOrderNo(order)}\n` +
     `Total Tagihan: ${formatRupiah(order.total)}\n` +

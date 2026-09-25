@@ -69,10 +69,8 @@
     border: 1px solid var(--gray-200);
     margin: 4px 0 12px;
   }
-  #status-loading { text-align: center; color: var(--gray-500); padding: 20px 0; }
-
   .store-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 14px; }
-  .store-logo { width: 44px; height: 44px; margin-bottom: 6px; }
+  .store-logo { width: 68px; height: 68px; margin-bottom: 8px; }
   .store-logo svg { width: 100%; height: 100%; }
   .store-name { font-size: 13px; font-weight: 700; color: #222; }
 
@@ -104,7 +102,10 @@
 </head>
 <body>
   <div class="status-card">
-    <div id="status-loading">Memuat status pesanan...</div>
+    <div id="status-loading" style="text-align:center; padding:40px 0;">
+      <div class="spinner"></div>
+      <p style="color:var(--gray-500); font-size:13px; margin:20px 0 0;">Memuat status pesanan...</p>
+    </div>
     <div id="status-content" style="display:none;"></div>
   </div>
 
