@@ -217,7 +217,7 @@ function buildStatistikSection() {
       const depan = i > m0; // bulan yang belum terjadi di tahun ini
       const lalu = agg.lalu[i];
       return `<tr>
-        <td>${STAT_BULAN[i]}${i === m0 ? ' <span style="font-size:11px; color:var(--gray-400);">(berjalan)</span>' : ""}</td>
+        <td>${STAT_BULAN[i]}${i === m0 ? ' <span style="font-size:11px; color:var(--text-muted);">(berjalan)</span>' : ""}</td>
         <td style="text-align:right;">${fmt(nilai(lalu))}</td>
         <td style="text-align:right; font-weight:600;">${depan ? "-" : fmt(nilai(b))}</td>
         <td style="text-align:right;">${depan ? "-" : chipPersen(persen(nilai(b), nilai(lalu)))}</td>
@@ -246,12 +246,12 @@ function buildStatistikSection() {
         <div class="stat-card" style="margin:0;"><div class="stat-body"><div class="stat-label">Jan-${STAT_BULAN[m0]} ${agg.year}</div><div class="stat-value" style="font-size:16px;">${fmt(ytdIni)}</div><div style="font-size:11px; color:var(--gray-500);">vs ${fmt(ytdLalu)} tahun lalu &nbsp;${chipPersen(persen(ytdIni, ytdLalu))}</div></div></div>
         <div class="stat-card" style="margin:0;"><div class="stat-body"><div class="stat-label">Total ${agg.year - 1}</div><div class="stat-value" style="font-size:16px;">${fmt(totalLalu)}</div><div style="font-size:11px; color:var(--gray-500);">setahun penuh</div></div></div>
       </div>
-      ${sembunyiUang ? `<p style="color:var(--gray-400); font-size:13px; margin:14px 0;">Angka uang disembunyikan (klik ikon mata di kartu Total Uang, atau atur di Kelola Tampilan).</p>` : `<div class="chart-box" style="height:280px;"><canvas id="dx-statistik-chart"></canvas></div>`}
+      ${sembunyiUang ? `<p style="color:var(--text-muted); font-size:13px; margin:14px 0;">Angka uang disembunyikan (klik ikon mata di kartu Total Uang, atau atur di Kelola Tampilan).</p>` : `<div class="chart-box" style="height:280px;"><canvas id="dx-statistik-chart"></canvas></div>`}
       <div class="table-wrap" style="margin-top:12px;">
         <table class="table">
           <thead><tr><th>Bulan</th><th style="text-align:right;">${agg.year - 1}</th><th style="text-align:right;">${agg.year}</th><th style="text-align:right;">Selisih</th></tr></thead>
           <tbody>${baris}
-            <tr style="font-weight:700; border-top:2px solid var(--gray-200);"><td>Total</td><td style="text-align:right;">${fmt(totalLalu)}</td><td style="text-align:right;">${fmt(totalIni)}</td><td style="text-align:right;">${chipPersen(persen(ytdIni, ytdLalu))}<div style="font-size:10.5px; font-weight:400; color:var(--gray-400);">Jan-${STAT_BULAN[m0]}</div></td></tr>
+            <tr style="font-weight:700; border-top:2px solid var(--gray-200);"><td>Total</td><td style="text-align:right;">${fmt(totalLalu)}</td><td style="text-align:right;">${fmt(totalIni)}</td><td style="text-align:right;">${chipPersen(persen(ytdIni, ytdLalu))}<div style="font-size:10.5px; font-weight:400; color:var(--text-muted);">Jan-${STAT_BULAN[m0]}</div></td></tr>
           </tbody>
         </table>
       </div>

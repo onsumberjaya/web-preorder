@@ -285,7 +285,7 @@ function ensureChangePasswordModal() {
   const div = document.createElement("div");
   div.innerHTML = `
     <div class="modal-backdrop" id="change-password-modal" style="display:none;">
-      <div class="modal-box">
+      <div class="modal-box" role="dialog" aria-modal="true">
         <h3 style="margin-top:0;">Ganti Password Saya</h3>
         <form id="change-password-form">
           <div class="field">

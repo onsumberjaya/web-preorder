@@ -395,7 +395,7 @@ function renderLkLabaRugi() {
       </div>
       <table>
         <tbody>
-          ${biayaRows || `<tr><td colspan="2" style="color:var(--gray-400);">Tidak ada pengeluaran di periode ini${lkKategoriFilter ? " untuk kategori ini" : ""}.</td></tr>`}
+          ${biayaRows || `<tr><td colspan="2" style="color:var(--text-muted);">Tidak ada pengeluaran di periode ini${lkKategoriFilter ? " untuk kategori ini" : ""}.</td></tr>`}
           ${lkKategoriFilter ? `<tr style="color:var(--gray-500);"><td>Subtotal kategori "${escapeHtml(lkKategoriFilter)}"</td><td style="text-align:right;">(${formatRupiah(subtotalTerfilter)})</td></tr>` : ""}
           <tr style="font-weight:700; border-top:1px solid var(--gray-200);"><td>Total Biaya Operasional${lkKategoriFilter ? " (Semua Kategori)" : ""}</td><td style="text-align:right;">(${formatRupiah(totalBiaya)})</td></tr>
         </tbody>
@@ -405,7 +405,7 @@ function renderLkLabaRugi() {
           <tr style="font-weight:800; font-size:15px; border-top:2px solid var(--gray-200);"><td>Laba Bersih${hppBadge}</td><td style="text-align:right; color:${labaBersih >= 0 ? "var(--brand-ink)" : "var(--red-600)"};">${formatRupiah(labaBersih)}</td></tr>
         </tbody>
       </table>
-      ${lkKategoriFilter ? `<p style="font-size:11.5px; color:var(--gray-400); margin:8px 0 0;"><i class="ph-bold ph-info"></i> Filter kategori cuma memilih rincian biaya yang ditampilkan. Total Biaya Operasional & Laba Bersih tetap dihitung dari semua kategori.</p>` : ""}
+      ${lkKategoriFilter ? `<p style="font-size:11.5px; color:var(--text-muted); margin:8px 0 0;"><i class="ph-bold ph-info"></i> Filter kategori cuma memilih rincian biaya yang ditampilkan. Total Biaya Operasional & Laba Bersih tetap dihitung dari semua kategori.</p>` : ""}
     </div>`;
 }
 
@@ -761,7 +761,7 @@ function lkChartCard(id, judul, ada, catatan) {
     <div class="card">
       <h3 style="margin:0; font-size:15px;">${judul}</h3>
       ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:2px 0 0;">${catatan}</p>` : ""}
-      ${ada ? `<div style="height:260px; margin-top:10px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:18px 0 8px;">Belum ada data untuk ditampilkan.</p>`}
+      ${ada ? `<div style="height:260px; margin-top:10px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--text-muted); font-size:13px; margin:18px 0 8px;">Belum ada data untuk ditampilkan.</p>`}
     </div>`;
 }
 
@@ -941,7 +941,7 @@ async function renderLkOrderDetail(id) {
       .map(
         (it) => `
       <tr>
-        <td>${escapeHtml(it.product_name)} <span style="color:var(--gray-400);">(${escapeHtml(it.wave_label || "-")})</span></td>
+        <td>${escapeHtml(it.product_name)} <span style="color:var(--text-muted);">(${escapeHtml(it.wave_label || "-")})</span></td>
         <td style="text-align:center;">${it.jumlah}</td>
         <td style="text-align:right;">${formatRupiah(it.subtotal)}</td>
       </tr>`
@@ -949,17 +949,17 @@ async function renderLkOrderDetail(id) {
       .join("");
     const riwayat =
       payments.length === 0
-        ? `<p style="color:var(--gray-400); font-size:13px;">Belum ada pembayaran tercatat.</p>`
+        ? `<p style="color:var(--text-muted); font-size:13px;">Belum ada pembayaran tercatat.</p>`
         : `<table><thead><tr><th>Tanggal</th><th style="text-align:right;">Jumlah</th></tr></thead><tbody>${payments
             .map(
-              (p) => `<tr><td>${formatTanggalWaktu(p.tanggal)}<br><span style="color:var(--gray-400); font-size:11px;">oleh ${escapeHtml(p.created_by_name || "-")}</span></td><td style="text-align:right;">${formatRupiah(p.jumlah)}</td></tr>`
+              (p) => `<tr><td>${formatTanggalWaktu(p.tanggal)}<br><span style="color:var(--text-muted); font-size:11px;">oleh ${escapeHtml(p.created_by_name || "-")}</span></td><td style="text-align:right;">${formatRupiah(p.jumlah)}</td></tr>`
             )
             .join("")}</tbody></table>`;
 
     box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <h3 style="margin:0;">Pesanan ${formatOrderNo(order)}</h3>
-        <button class="icon-btn" onclick="closeLkDetail()"><i class="ph ph-x"></i></button>
+        <button class="icon-btn" title="Tutup" aria-label="Tutup" onclick="closeLkDetail()"><i class="ph ph-x"></i></button>
       </div>
       <p style="color:var(--gray-500); font-size:13px; margin:4px 0;">${escapeHtml(order.nama_pembeli)} · ${formatTanggal(order.tanggal)}</p>
       <div style="background:var(--gray-50); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:14px; font-size:12.5px; color:var(--gray-600); display:grid; gap:4px;">
@@ -1060,7 +1060,7 @@ async function renderLkHutangDetail(id) {
     const sisa = total - dibayar;
     const riwayatHtml =
       riwayat.length === 0
-        ? `<p style="color:var(--gray-400); font-size:13px;">Belum ada pembayaran.</p>`
+        ? `<p style="color:var(--text-muted); font-size:13px;">Belum ada pembayaran.</p>`
         : riwayat
             .map(
               (r) => `
@@ -1076,7 +1076,7 @@ async function renderLkHutangDetail(id) {
     box.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <h3 style="margin:0;">Hutang Usaha</h3>
-        <button class="icon-btn" onclick="closeLkDetail()"><i class="ph ph-x"></i></button>
+        <button class="icon-btn" title="Tutup" aria-label="Tutup" onclick="closeLkDetail()"><i class="ph ph-x"></i></button>
       </div>
       <p style="color:var(--gray-500); font-size:13px; margin:4px 0 12px;">${escapeHtml(e.kategori)}${e.keterangan ? ` -- ${escapeHtml(e.keterangan)}` : ""} · ${formatTanggal(e.tanggal)}</p>
       <div style="display:flex; justify-content:space-between; font-size:14px; padding-top:8px; border-top:1px solid var(--gray-200);"><span>Jumlah</span><strong>${formatRupiah(total)}</strong></div>
@@ -1278,7 +1278,7 @@ function renderLkTren() {
           <span style="font-size:18px; font-weight:800;">${formatRupiah(iniBulan.omzet)}</span>
           ${trendBadge(omzetPct)}
         </div>
-        <div style="font-size:11.5px; color:var(--gray-400); margin-top:4px;">Bulan lalu: ${formatRupiah(bulanLalu.omzet)}</div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">Bulan lalu: ${formatRupiah(bulanLalu.omzet)}</div>
       </div>
       <div class="card">
         <div style="font-size:12px; color:var(--gray-500); font-weight:700; text-transform:uppercase; margin-bottom:6px;">Laba Bersih Bulan Ini vs Lalu${iniBulan.hppKurang > 0 ? ` <span class="badge badge-red" style="text-transform:none;">Belum final</span>` : ""}</div>
@@ -1286,7 +1286,7 @@ function renderLkTren() {
           <span style="font-size:18px; font-weight:800;">${formatRupiah(iniBulan.laba)}</span>
           ${trendBadge(labaPct)}
         </div>
-        <div style="font-size:11.5px; color:var(--gray-400); margin-top:4px;">Bulan lalu: ${formatRupiah(bulanLalu.laba)}</div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">Bulan lalu: ${formatRupiah(bulanLalu.laba)}</div>
       </div>
     </div>
     ${bulanBerjalanNote}
@@ -1294,7 +1294,7 @@ function renderLkTren() {
       <h3 style="margin-top:0; font-size:15px;">Komposisi Biaya per Kategori -- 6 Bulan Terakhir</h3>
       ${
         Object.keys(biayaPerKategoriTotal).length === 0
-          ? `<p style="color:var(--gray-400); font-size:13px;">Belum ada pengeluaran tercatat.</p>`
+          ? `<p style="color:var(--text-muted); font-size:13px;">Belum ada pengeluaran tercatat.</p>`
           : `<div style="max-width:320px; margin:0 auto;"><canvas id="lk-komposisi-chart"></canvas></div>`
       }
     </div>`;
@@ -1396,7 +1396,8 @@ function lkTrenExportData() {
   };
 }
 
-function exportLkExcel() {
+async function exportLkExcel() {
+  if (!(await ensureExportLib("xlsx"))) return;
   const filterParts = lkFilterSummary();
   const aoa = [[lkToko.nama || "Toko Benih"], [`Laporan Keuangan -- ${lkTabTitle()} -- diekspor ${formatTanggal(new Date())}`]];
   if (filterParts.length > 0) aoa.push([`Filter aktif: ${filterParts.join("  |  ")}`]);
@@ -1541,7 +1542,8 @@ function exportLkExcel() {
   XLSX.writeFile(wb, `laporan-keuangan-${lkTab}-${todayInputValue()}.xlsx`);
 }
 
-function exportLkPdf() {
+async function exportLkPdf() {
+  if (!(await ensureExportLib("pdf"))) return;
   const filterParts = lkFilterSummary();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();

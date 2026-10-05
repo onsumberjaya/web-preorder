@@ -538,7 +538,7 @@ function renderDashboard() {
           </select>
         </div>
       </div>
-      <p style="font-size:12px; color:var(--gray-400); margin:-4px 0 12px;">Tips: pakai filter "Rentang Tanggal..." di atas untuk atur sendiri periode yang ditampilkan.</p>
+      <p style="font-size:12px; color:var(--text-muted); margin:-4px 0 12px;">Tips: pakai filter "Rentang Tanggal..." di atas untuk atur sendiri periode yang ditampilkan.</p>
       <div class="chart-waktu-box"><canvas id="chart-waktu"></canvas></div>
     </div>
 
@@ -576,7 +576,7 @@ function renderDashboard() {
           <tbody>
             ${
               Object.keys(tabelPerProduk).length === 0
-                ? `<tr><td colspan="${cabangColumns.length + 2}" style="color:var(--gray-400);">Belum ada data.</td></tr>`
+                ? `<tr><td colspan="${cabangColumns.length + 2}" style="color:var(--text-muted);">Belum ada data.</td></tr>`
                 : Object.keys(tabelPerProduk)
                     .sort((a, b) => tabelPerProduk[b] - tabelPerProduk[a])
                     .map(
@@ -671,7 +671,7 @@ function dashChartCard(id, icon, judul, ada, catatan, pesanKosong) {
       <div class="card chart-card" data-dash="${id}">
         <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
         ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
-        ${ada ? `<div class="chart-box" style="height:260px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">${pesanKosong || "Belum ada data."}</p>`}
+        ${ada ? `<div class="chart-box" style="height:260px;"><canvas id="${id}"></canvas></div>` : `<p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;">${pesanKosong || "Belum ada data."}</p>`}
       </div>`;
 }
 function dashListCard(key, icon, judul, catatan, headHtml, rowsHtml) {
@@ -679,7 +679,7 @@ function dashListCard(key, icon, judul, catatan, headHtml, rowsHtml) {
       <div class="card" data-dash="${key}">
         <div class="card-heading" style="margin-bottom:${catatan ? 4 : 14}px;"><span class="card-heading-icon"><i class="ph-bold ${icon}"></i></span><h3>${judul}</h3></div>
         ${catatan ? `<p style="font-size:12px; color:var(--gray-500); margin:0 0 10px;">${catatan}</p>` : ""}
-        ${rowsHtml ? `<div class="table-wrap"><table class="table"><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<p style="color:var(--gray-400); font-size:13px; margin:14px 0 6px;">Tidak ada.</p>`}
+        ${rowsHtml ? `<div class="table-wrap"><table class="table"><thead><tr>${headHtml}</tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<p style="color:var(--text-muted); font-size:13px; margin:14px 0 6px;">Tidak ada.</p>`}
       </div>`;
 }
 
@@ -886,7 +886,7 @@ function drawTimeSeriesChart(canvasId, timeSeries, produkNames, produkColorMap, 
   if (chartWaktu) chartWaktu.destroy();
 
   if (timeSeries.length === 0) {
-    ctx.parentElement.insertAdjacentHTML("beforeend", '<p style="color:var(--gray-400); font-size:13px;">Belum ada data.</p>');
+    ctx.parentElement.insertAdjacentHTML("beforeend", '<p style="color:var(--text-muted); font-size:13px;">Belum ada data.</p>');
     return;
   }
 
@@ -965,7 +965,7 @@ function drawBarChart(canvasId, dataObj, varName, color, horizontal) {
   if (window[varName]) window[varName].destroy();
 
   if (labels.length === 0) {
-    ctx.parentElement.insertAdjacentHTML("beforeend", '<p style="color:var(--gray-400); font-size:13px;">Belum ada data.</p>');
+    ctx.parentElement.insertAdjacentHTML("beforeend", '<p style="color:var(--text-muted); font-size:13px;">Belum ada data.</p>');
     return;
   }
 

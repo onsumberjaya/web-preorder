@@ -70,7 +70,7 @@ function renderProducts() {
         <div class="table-wrap" style="margin-top:14px;">
           <table>
             <thead><tr><th>Gelombang</th><th>Harga</th><th></th></tr></thead>
-            <tbody>${waveRows || '<tr><td colspan="3" style="color:var(--gray-400);">Belum ada gelombang harga</td></tr>'}</tbody>
+            <tbody>${waveRows || '<tr><td colspan="3" style="color:var(--text-muted);">Belum ada gelombang harga</td></tr>'}</tbody>
           </table>
         </div>
         <button class="btn-secondary btn-sm" style="margin-top:10px;" onclick="openWaveModal('${p.id}')">+ Tambah Gelombang</button>

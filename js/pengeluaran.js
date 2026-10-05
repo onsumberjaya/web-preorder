@@ -396,12 +396,12 @@ async function renderBayarModal() {
   document.getElementById("bayar-jumlah").value = sisa > 0 ? sisa.toLocaleString("id-ID") : "";
 
   const box = document.getElementById("bayar-riwayat");
-  box.innerHTML = `<p style="font-size:12.5px; color:var(--gray-400);">Memuat riwayat...</p>`;
+  box.innerHTML = `<p style="font-size:12.5px; color:var(--text-muted);">Memuat riwayat...</p>`;
   try {
     const all = await hutangAmbilRiwayat(item);
     box.innerHTML =
       all.length === 0
-        ? `<p style="font-size:12.5px; color:var(--gray-400); margin:10px 0;">Belum ada pembayaran.</p>`
+        ? `<p style="font-size:12.5px; color:var(--text-muted); margin:10px 0;">Belum ada pembayaran.</p>`
         : `<div style="margin:10px 0;">${all
             .map(
               (r) => `
@@ -476,7 +476,7 @@ function renderKategoriList() {
   const box = document.getElementById("kategori-list");
   if (!box) return;
   if (pengKategoriList.length === 0) {
-    box.innerHTML = `<p style="color:var(--gray-400); font-size:13px;">Belum ada kategori.</p>`;
+    box.innerHTML = `<p style="color:var(--text-muted); font-size:13px;">Belum ada kategori.</p>`;
     return;
   }
   box.innerHTML = pengKategoriList

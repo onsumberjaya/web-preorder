@@ -273,14 +273,63 @@ function showUndoToast(message, onUndo, durationMs) {
   }, durationMs);
 }
 
+// ---------------------------------------------------------------------------
+// Muat library ekspor (SheetJS & jsPDF + autotable) HANYA saat tombol ekspor
+// diklik, bukan di setiap kunjungan ke halaman Laporan. Ukurannya besar
+// (ratusan KB) dan baru dipakai kalau pengguna benar-benar mengekspor.
+// ---------------------------------------------------------------------------
+const EXPORT_LIB_URLS = {
+  xlsx: ["https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"],
+  // urutan penting: autotable butuh jsPDF sudah termuat lebih dulu
+  pdf: [
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js",
+  ],
+};
+const _scriptLoadCache = {};
+const _exportLibReady = { xlsx: false, pdf: false };
+
+function loadScriptOnce(url) {
+  if (_scriptLoadCache[url]) return _scriptLoadCache[url];
+  _scriptLoadCache[url] = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = () => resolve();
+    s.onerror = () => {
+      delete _scriptLoadCache[url]; // boleh dicoba lagi kalau koneksi sempat putus
+      s.remove();
+      reject(new Error("Gagal memuat " + url));
+    };
+    document.head.appendChild(s);
+  });
+  return _scriptLoadCache[url];
+}
+
+// jenis: "xlsx" | "pdf". Mengembalikan true kalau library siap dipakai.
+async function ensureExportLib(jenis) {
+  if (_exportLibReady[jenis]) return true;
+  showToast("Menyiapkan ekspor...", "info");
+  try {
+    for (const url of EXPORT_LIB_URLS[jenis]) await loadScriptOnce(url);
+    _exportLibReady[jenis] = true;
+    return true;
+  } catch (e) {
+    console.error(e);
+    showToast("Gagal memuat pustaka ekspor. Periksa koneksi internet lalu coba lagi.", "error");
+    return false;
+  }
+}
+
 function showToast(message, type) {
   type = type || "info";
   let el = document.getElementById("app-toast");
   if (!el) {
     el = document.createElement("div");
     el.id = "app-toast";
+    // Posisi bawah diatur lewat CSS (#app-toast) supaya di HP naik di atas bottom nav.
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
     el.style.position = "fixed";
-    el.style.bottom = "20px";
     el.style.left = "50%";
     el.style.transform = "translateX(-50%)";
     el.style.zIndex = "999";
@@ -712,7 +761,7 @@ function applyProdukGelombangStatsDelta(tx, deltaMap) {
 function renderPaginationControls(currentPage, pageSize, totalItems, gotoFnName) {
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   if (totalPages <= 1) {
-    return `<p style="text-align:center; font-size:12.5px; color:var(--gray-400); margin-top:10px;">${totalItems} data</p>`;
+    return `<p style="text-align:center; font-size:12.5px; color:var(--text-muted); margin-top:10px;">${totalItems} data</p>`;
   }
 
   const startItem = (currentPage - 1) * pageSize + 1;
@@ -729,14 +778,14 @@ function renderPaginationControls(currentPage, pageSize, totalItems, gotoFnName)
       <span style="font-size:12.5px; color:var(--gray-500);">Menampilkan ${startItem}–${endItem} dari ${totalItems} data</span>
       <div style="display:flex; gap:6px; align-items:center;">
         <button class="btn-secondary btn-sm" onclick="${gotoFnName}(${currentPage - 1})" ${currentPage === 1 ? "disabled" : ""}><i class="ph-bold ph-caret-left"></i></button>
-        ${start > 1 ? `<button class="btn-secondary btn-sm" onclick="${gotoFnName}(1)">1</button>${start > 2 ? '<span style="color:var(--gray-400);">…</span>' : ""}` : ""}
+        ${start > 1 ? `<button class="btn-secondary btn-sm" onclick="${gotoFnName}(1)">1</button>${start > 2 ? '<span style="color:var(--text-muted);">…</span>' : ""}` : ""}
         ${pageNumbers
           .map(
             (p) =>
               `<button class="btn-sm" style="min-width:32px; ${p === currentPage ? "background:var(--brand-600); color:#fff; border-color:var(--brand-600);" : "background:#fff; border:1px solid var(--gray-200); color:var(--gray-700);"}" onclick="${gotoFnName}(${p})">${p}</button>`
           )
           .join("")}
-        ${end < totalPages ? `${end < totalPages - 1 ? '<span style="color:var(--gray-400);">…</span>' : ""}<button class="btn-secondary btn-sm" onclick="${gotoFnName}(${totalPages})">${totalPages}</button>` : ""}
+        ${end < totalPages ? `${end < totalPages - 1 ? '<span style="color:var(--text-muted);">…</span>' : ""}<button class="btn-secondary btn-sm" onclick="${gotoFnName}(${totalPages})">${totalPages}</button>` : ""}
         <button class="btn-secondary btn-sm" onclick="${gotoFnName}(${currentPage + 1})" ${currentPage === totalPages ? "disabled" : ""}><i class="ph-bold ph-caret-right"></i></button>
       </div>
     </div>
@@ -770,7 +819,7 @@ function ensureConfirmModal() {
   const div = document.createElement("div");
   div.innerHTML = `
     <div class="modal-backdrop" id="shared-confirm-modal" style="display:none;">
-      <div class="modal-box" style="max-width:420px;">
+      <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px;">
         <div id="shared-confirm-modal-body" style="font-size:14px; color:var(--gray-700);"></div>
         <div style="display:flex; gap:10px; margin-top:18px;">
           <button type="button" id="shared-confirm-modal-ok" style="flex:1; justify-content:center;">Lanjutkan</button>

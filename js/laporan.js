@@ -421,7 +421,7 @@ function renderReport() {
         .map(
           (it) => `
         <div class="order-item-line">
-          <div class="item-produk">${escapeHtml(it.product_name)} <span style="color:var(--gray-400); font-weight:500;">x${it.jumlah}</span></div>
+          <div class="item-produk">${escapeHtml(it.product_name)} <span style="color:var(--text-muted); font-weight:500;">x${it.jumlah}</span></div>
           <div class="item-gelombang">${escapeHtml(resolveWaveLabel(it, lapProductsMap))}</div>
         </div>`
         )
@@ -432,16 +432,16 @@ function renderReport() {
 
       return `
     <tr>
-      <td style="text-align:center; color:var(--gray-400); font-size:12.5px;">${startIdx + idx + 1}</td>
+      <td style="text-align:center; color:var(--text-muted); font-size:12.5px;">${startIdx + idx + 1}</td>
       <td>
         <div style="font-weight:700; color:var(--gray-900);">${formatOrderNo(o)} ${janggal ? '<span title="Harga di pesanan ini berbeda dari harga gelombang yang berlaku sekarang" style="color:var(--red-600);">⚠️</span>' : ""}</div>
-        <div style="font-size:11.5px; color:var(--gray-400); margin-top:1px;">${formatTanggal(o.tanggal)}</div>
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:1px;">${formatTanggal(o.tanggal)}</div>
       </td>
       ${lapShowCabang ? `<td>${escapeHtml(cabangNamaLap(o.cabang_id))}</td>` : ""}
       <td>
         <div style="font-weight:600;">${escapeHtml(o.nama_pembeli)}</div>
-        <div style="font-size:11.5px; color:var(--gray-400); margin-top:1px;">${escapeHtml(o.no_hp || "-")}</div>
-        ${o.alamat ? `<div style="font-size:11.5px; color:var(--gray-400);">${escapeHtml(o.alamat)}</div>` : ""}
+        <div style="font-size:11.5px; color:var(--text-muted); margin-top:1px;">${escapeHtml(o.no_hp || "-")}</div>
+        ${o.alamat ? `<div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(o.alamat)}</div>` : ""}
       </td>
       <td style="min-width:170px;">${produkCell}</td>
       <td style="text-align:center;">${totalQty}</td>
@@ -475,7 +475,7 @@ function renderReport() {
               <th>Cek Harga</th>
             </tr>
           </thead>
-          <tbody>${rows || `<tr><td colspan="${lapShowCabang ? 12 : 11}" style="text-align:center; color:var(--gray-400);">Tidak ada data</td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="${lapShowCabang ? 12 : 11}" style="text-align:center; color:var(--text-muted);">Tidak ada data</td></tr>`}</tbody>
         </table>
       </div>
     </div>
@@ -519,11 +519,12 @@ function buildFilterSummary() {
   return parts;
 }
 
-function exportExcel() {
+async function exportExcel() {
   if (lapFiltered.length === 0) {
     showToast("Tidak ada data untuk diekspor.", "error");
     return;
   }
+  if (!(await ensureExportLib("xlsx"))) return;
 
   const headers = ["No Pesanan", "Tanggal"];
   if (lapShowCabang) headers.push("Cabang");
@@ -612,11 +613,12 @@ function exportExcel() {
   XLSX.writeFile(wb, `laporan-pesanan-${todayInputValue()}.xlsx`);
 }
 
-function exportPdf() {
+async function exportPdf() {
   if (lapFiltered.length === 0) {
     showToast("Tidak ada data untuk diekspor.", "error");
     return;
   }
+  if (!(await ensureExportLib("pdf"))) return;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape" });
   doc.setFontSize(14);

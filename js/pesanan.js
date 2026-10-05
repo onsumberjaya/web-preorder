@@ -5,6 +5,13 @@ let selectedIds = new Set();
 let currentProfile = null;
 let currentPage = 1;
 let pageSize = 11; // PERBAIKAN: sebelumnya 15, tidak cocok dengan <option value="11" selected> di pesanan.html -- baris pertama yang ditampilkan salah jumlah sebelum user mengubah dropdownnya sendiri.
+// Mode tanpa rentang tanggal ("Semua Waktu", belum lunas, anomali, cari dari
+// topbar) dibatasi ke N pesanan terbaru supaya bacaan Firestore tidak membengkak
+// seiring riwayat bertambah; tombol "Muat lebih lama" menaikkan batasnya.
+const ORDERS_UNBOUNDED_STEP = 500;
+let ordersUnboundedLimit = ORDERS_UNBOUNDED_STEP;
+let ordersMayHaveMore = false;
+let ordersLoadKey = "";
 let tokoProfil = { nama: "Toko Kami" }; // dipakai di teks pesan WA, dimuat sekali di onAuthReady
 
 // Kotak centang per pesanan disembunyikan sampai kotak centang di header
@@ -437,6 +444,15 @@ async function loadOrders() {
   const container = document.getElementById("order-list");
   container.innerHTML = skeletonRows(8);
 
+  // Ganti rentang tanggal/cabang -> batas kembali ke awal. Muat Ulang dengan
+  // filter yang sama mempertahankan batas yang sudah dinaikkan pengguna.
+  const loadKey = `${dari}|${sampai}|${profile.cabang_id || ""}`;
+  if (loadKey !== ordersLoadKey) {
+    ordersLoadKey = loadKey;
+    ordersUnboundedLimit = ORDERS_UNBOUNDED_STEP;
+  }
+  const unbounded = !dari && !sampai;
+
   // Lepas listener SEBELUMNYA (kalau ada) dulu sebelum memasang yang baru --
   // dipanggil lagi tiap filter tanggal/cabang berubah atau klik "Muat
   // Ulang". Tanpa ini, listener lama akan tetap menyala menumpuk di
@@ -454,10 +470,12 @@ async function loadOrders() {
   if (dari) query = query.where("tanggal", ">=", new Date(dari + "T00:00:00"));
   if (sampai) query = query.where("tanggal", "<=", new Date(sampai + "T23:59:59"));
   query = query.orderBy("tanggal", "desc");
+  if (unbounded) query = query.limit(ordersUnboundedLimit);
 
   ordersUnsubscribe = query.onSnapshot(
     (snap) => {
       allOrders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      ordersMayHaveMore = unbounded && snap.size >= ordersUnboundedLimit;
       renderOrders();
     },
     (err) => {
@@ -469,6 +487,43 @@ async function loadOrders() {
 function refreshOrders() {
   currentPage = 1;
   loadOrders();
+}
+
+// Tombol "Muat lebih lama": kalau ada tanggal "Dari", mundurkan 30 hari;
+// kalau tidak ada rentang tanggal, naikkan batas jumlah pesanan.
+function muatPesananLebihLama() {
+  const dariEl = document.getElementById("filter-dari");
+  if (dariEl.value) {
+    const d = new Date(dariEl.value + "T00:00:00");
+    d.setDate(d.getDate() - 30);
+    dariEl.value = localYmd(d);
+    document.getElementById("filter-periode-pesanan").value = "custom";
+    clearQuickFilterActive();
+    savePesananFilters();
+  } else {
+    ordersUnboundedLimit += ORDERS_UNBOUNDED_STEP;
+  }
+  loadOrders();
+}
+
+function renderMuatLebihLamaHtml() {
+  const dari = document.getElementById("filter-dari").value;
+  let info = "";
+  let label = "";
+  if (dari) {
+    info = `Menampilkan pesanan sejak ${formatTanggal(new Date(dari + "T00:00:00"))}`;
+    label = "Muat 30 hari lebih lama";
+  } else if (ordersMayHaveMore) {
+    info = `Menampilkan ${allOrders.length} pesanan terbaru`;
+    label = `Muat ${ORDERS_UNBOUNDED_STEP} pesanan lebih lama`;
+  } else {
+    return "";
+  }
+  return `
+    <div style="text-align:center; margin:14px 0;">
+      <button type="button" class="btn-secondary btn-sm" onclick="muatPesananLebihLama()"><i class="ph-bold ph-clock-counter-clockwise"></i> ${label}</button>
+      <div style="font-size:12px; color:var(--gray-500); margin-top:6px;">${info}</div>
+    </div>`;
 }
 
 function getFilteredOrders() {
@@ -586,6 +641,7 @@ function renderOrders() {
         <button type="button" class="btn-secondary btn-sm" onclick="resetFilters()" style="margin:0 auto;">
           <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset Filter
         </button>
+        ${isQueryEmpty ? renderMuatLebihLamaHtml() : ""}
       </div>`;
     updateBulkToolbar();
     return;
@@ -606,23 +662,23 @@ function renderOrders() {
 
   container.innerHTML = `
     <div class="card content-fade-in" style="padding:0;">
-      <div class="table-wrap">
-        <table>
+      <div class="table-wrap order-table-wrap">
+        <table class="order-table">
           <thead>
             <tr>
-              <th style="text-align:center;">
+              <th class="oh-keep" style="text-align:center;">
                 ${
                   checkboxesRevealed
-                    ? `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Pilih/batal pilih semua" /><br /><a href="#" onclick="exitSelectionMode(); return false;" style="font-size:10px; color:var(--gray-400); text-decoration:underline;">Batal</a>`
-                    : `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Klik untuk pilih semua pesanan yang terlihat" /><br /><span style="font-size:10px; font-weight:400; color:var(--gray-400);">No</span>`
+                    ? `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Pilih/batal pilih semua" /><br /><a href="#" onclick="exitSelectionMode(); return false;" style="font-size:10px; color:var(--text-muted); text-decoration:underline;">Batal</a>`
+                    : `<input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" title="Klik untuk pilih semua pesanan yang terlihat" /><br /><span style="font-size:10px; font-weight:400; color:var(--text-muted);">No</span>`
                 }
               </th>
-              <th style="cursor:pointer; user-select:none;" onclick="sortByHeader('tanggal')">Nota / Tanggal ${headerSortIcon("tanggal")}</th>
+              <th class="oh-keep" style="cursor:pointer; user-select:none;" onclick="sortByHeader('tanggal')">Nota / Tanggal ${headerSortIcon("tanggal")}</th>
               ${showCabangCol ? "<th>Cabang</th>" : ""}
               <th>Pemesan</th>
               <th>Produk & Gelombang</th>
               <th>Qty</th>
-              <th style="text-align:right; cursor:pointer; user-select:none;" onclick="sortByHeader('total')">Total Tagihan ${headerSortIcon("total")}</th>
+              <th class="oh-keep" style="text-align:right; cursor:pointer; user-select:none;" onclick="sortByHeader('total')">Total Tagihan ${headerSortIcon("total")}</th>
               <th>Status Bayar</th>
               <th>Pengambilan</th>
               <th>Aksi</th>
@@ -635,6 +691,7 @@ function renderOrders() {
       </div>
     </div>
     ${renderPaginationControls(currentPage, pageSize, list.length, "goToPage")}
+    ${renderMuatLebihLamaHtml()}
   `;
   syncSelectAllCheckbox();
   updateBulkToolbar();
@@ -656,7 +713,7 @@ function renderRow(o, idx, isOwner, showCabangCol) {
     .map(
       (it) => `
       <div class="order-item-line">
-        <div class="item-produk">${escapeHtml(it.product_name)}</div>
+        <div class="item-produk">${escapeHtml(it.product_name)}<span class="oc-qty-inline"> &times; ${it.jumlah}</span></div>
         <div class="item-gelombang">${escapeHtml(resolveWaveLabel(it, allProductsMap))}</div>
       </div>`
     )
@@ -676,39 +733,39 @@ function renderRow(o, idx, isOwner, showCabangCol) {
 
   return `
     <tr>
-      <td style="text-align:center; color:var(--gray-400); font-size:12.5px;">
+      <td class="oc-sel" style="text-align:center; color:var(--text-muted); font-size:12.5px;">
         ${checkboxesRevealed ? `<input type="checkbox" ${checked} onchange="toggleSelect('${o.id}', this.checked)" />` : `<a href="#" onclick="revealAndSelect('${o.id}'); return false;" style="color:inherit; text-decoration:none;" title="Klik untuk mulai pilih pesanan">${idx + 1}</a>`}
       </td>
-      <td>
+      <td class="oc-nota">
         <div style="font-weight:700; color:var(--gray-900);">${formatOrderNo(o)} ${janggal ? '<span title="Harga di pesanan ini berbeda dari harga gelombang yang berlaku sekarang" style="color:var(--red-600);">⚠️</span>' : ""}</div>
-        <div style="font-size:10px; color:var(--gray-400); margin-top:1px;">${formatTanggal(o.tanggal)}</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:1px;">${formatTanggal(o.tanggal)}</div>
       </td>
       ${
         showCabangCol
-          ? `<td>
+          ? `<td class="oc-cabang">
         <div style="font-weight:600;">${escapeHtml(cabangNama)}</div>
-        <div style="font-size:10px; color:var(--gray-400); margin-top:1px;">${escapeHtml(o.alamat || "-")}</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:1px;">${escapeHtml(o.alamat || "-")}</div>
       </td>`
           : ""
       }
-      <td>
+      <td class="oc-pemesan">
         <div style="font-weight:600;">${escapeHtml(o.nama_pembeli)}</div>
-        <div style="font-size:10px; color:var(--gray-400); margin-top:1px;">${escapeHtml(o.no_hp || "-")}</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:1px;">${escapeHtml(o.no_hp || "-")}</div>
       </td>
-      <td style="min-width:170px;">${produkCell}</td>
-      <td>${qtyCell}</td>
-      <td style="text-align:right;">
+      <td class="oc-produk" style="min-width:170px;">${produkCell}</td>
+      <td class="oc-qty">${qtyCell}</td>
+      <td class="oc-total" style="text-align:right;">
         <div style="font-weight:700; color:var(--gray-900);">${formatRupiah(o.total)}</div>
-        ${belumLunas ? `<div style="font-size:9.5px; color:var(--gray-400); margin-top:1px;">Bayar: ${formatRupiah(o.paid_amount || 0)}</div>` : ""}
+        ${belumLunas ? `<div style="font-size:9.5px; color:var(--text-muted); margin-top:1px;">Bayar: ${formatRupiah(o.paid_amount || 0)}</div>` : ""}
       </td>
-      <td><span class="badge ${STATUS_BAYAR_BADGE[o.status_bayar]}">${STATUS_BAYAR_LABEL[o.status_bayar].toUpperCase()}</span></td>
-      <td>
+      <td class="oc-bayar"><span class="badge ${STATUS_BAYAR_BADGE[o.status_bayar]}">${STATUS_BAYAR_LABEL[o.status_bayar].toUpperCase()}</span></td>
+      <td class="oc-ambil">
         <span class="badge ${o.is_diambil ? "badge-green" : "badge-gray"}">${o.is_diambil ? "SUDAH" : "BELUM"}</span>
         <button class="icon-btn" title="${o.is_diambil ? "Tandai Belum Diambil" : "Tandai Sudah Diambil"} (1 tap)" onclick="toggleSingleDiambil('${o.id}')" style="margin-left:4px; vertical-align:middle;">
           <i class="ph-bold ${o.is_diambil ? "ph-arrow-counter-clockwise" : "ph-check-circle"}"></i>
         </button>
       </td>
-      <td style="white-space:nowrap;">
+      <td class="oc-aksi" style="white-space:nowrap;">
         <div style="display:flex; gap:6px;">
           <button class="icon-btn" title="Lihat Detail / Catat Bayar" onclick="openDetailModal('${o.id}')"><i class="ph ph-eye"></i></button>
           ${
@@ -1142,7 +1199,7 @@ function renderDetailModal(order) {
     .map(
       (it) => `
     <tr>
-      <td>${escapeHtml(it.product_name)} <span style="color:var(--gray-400);">(${escapeHtml(resolveWaveLabel(it, allProductsMap))})</span></td>
+      <td>${escapeHtml(it.product_name)} <span style="color:var(--text-muted);">(${escapeHtml(resolveWaveLabel(it, allProductsMap))})</span></td>
       <td style="text-align:center;">${it.jumlah}</td>
       <td style="text-align:right;">${formatRupiah(it.subtotal)}</td>
     </tr>`
@@ -1154,7 +1211,7 @@ function renderDetailModal(order) {
   document.getElementById("detail-modal-content").innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
       <h3 style="margin:0;">Pesanan ${formatOrderNo(order)}</h3>
-      <button class="icon-btn" onclick="closeDetailModal()"><i class="ph ph-x"></i></button>
+      <button class="icon-btn" title="Tutup" aria-label="Tutup" onclick="closeDetailModal()"><i class="ph ph-x"></i></button>
     </div>
     <p style="color:var(--gray-500); font-size:13px; margin:4px 0 4px;">
       ${escapeHtml(order.nama_pembeli)} · ${formatTanggal(order.tanggal)}
@@ -1321,7 +1378,7 @@ function renderPaymentHistory(orderId, payments) {
   const container = document.getElementById("payment-history");
   if (!container) return;
   if (payments.length === 0) {
-    container.innerHTML = `<p style="color:var(--gray-400); font-size:13px;">Belum ada pembayaran tercatat.</p>`;
+    container.innerHTML = `<p style="color:var(--text-muted); font-size:13px;">Belum ada pembayaran tercatat.</p>`;
     return;
   }
   container.innerHTML = `
@@ -1332,7 +1389,7 @@ function renderPaymentHistory(orderId, payments) {
           .map(
             (p) => `
           <tr>
-            <td>${formatTanggalWaktu(p.tanggal)}<br><span style="color:var(--gray-400); font-size:11px;">oleh ${escapeHtml(p.created_by_name || "-")}</span></td>
+            <td>${formatTanggalWaktu(p.tanggal)}<br><span style="color:var(--text-muted); font-size:11px;">oleh ${escapeHtml(p.created_by_name || "-")}</span></td>
             <td style="text-align:right;">${formatRupiah(p.jumlah)}</td>
           </tr>`
           )

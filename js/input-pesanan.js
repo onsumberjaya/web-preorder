@@ -589,14 +589,14 @@ function updateSummaryPanel() {
           return `
         <div class="summary-item-row">
           <span style="color:var(--gray-700);">
-            ${escapeHtml(info.productName)} <span style="color:var(--gray-400);">x${escapeHtml(l.jumlah)}</span>
+            ${escapeHtml(info.productName)} <span style="color:var(--text-muted);">x${escapeHtml(l.jumlah)}</span>
             <div style="font-size:11px; color:var(--brand-600);">${escapeHtml(info.waveLabel)}</div>
           </span>
           <span style="font-weight:600; white-space:nowrap;">${formatRupiah(lineSubtotal(l))}</span>
         </div>`;
         })
         .join("")
-    : `<div style="font-size:12.5px; color:var(--gray-400); padding:8px 0;">Belum ada produk dipilih.</div>`;
+    : `<div style="font-size:12.5px; color:var(--text-muted); padding:8px 0;">Belum ada produk dipilih.</div>`;
 
   panel.innerHTML = `
     <div style="font-size:12.5px; color:var(--gray-500); margin-bottom:2px;">Pemesan</div>

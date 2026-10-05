@@ -12,6 +12,7 @@
   --gray-200: #e2e8f0;
   --gray-300: #cbd5e1;
   --gray-400: #94a3b8;
+  --text-muted: #64748b; /* teks redup: kontras ~4.8:1 di atas putih (gray-400 cuma ~2.6:1) */
   --gray-500: #64748b;
   --gray-700: #334155;
   --gray-800: #1e293b;
@@ -43,6 +44,7 @@
   --gray-200: #334155;
   --gray-300: #64748b;
   --gray-400: #94a3b8;
+  --text-muted: #94a3b8;
   --gray-500: #cbd5e1;
   --gray-700: #e2e8f0;
   --gray-800: #f1f5f9;
@@ -82,6 +84,7 @@ a { color: inherit; text-decoration: none; }
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   margin-top: 60px;
 }
 
@@ -95,6 +98,7 @@ a { color: inherit; text-decoration: none; }
   position: sticky;
   top: 60px;
   height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   overflow-y: auto;
   z-index: 20;
 }
@@ -120,8 +124,8 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
 }
 .sidebar-brand h1 { font-size: 14.5px; margin: 0; color: var(--gray-900); font-weight: 700; line-height: 1.2; }
-.sidebar-brand .app-meta { font-size: 10.5px; margin: 2px 0 0; color: var(--gray-400); font-weight: 400; }
-.sidebar-brand .app-meta .app-version { font-weight: 400; color: var(--gray-400); }
+.sidebar-brand .app-meta { font-size: 10.5px; margin: 2px 0 0; color: var(--text-muted); font-weight: 400; }
+.sidebar-brand .app-meta .app-version { font-weight: 400; color: var(--text-muted); }
 
 .sidebar-nav { flex: 1; padding: 12px; }
 .sidebar-nav .nav-item {
@@ -310,6 +314,7 @@ main.content {
     left: -260px;
     top: 60px;
     height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
     transition: left 0.2s ease;
     box-shadow: 2px 0 12px rgba(0,0,0,0.1);
   }
@@ -570,7 +575,7 @@ table tbody tr:hover { background: var(--gray-50); }
 #laporan-table table { font-size: 10px; }
 #laporan-table table th { font-size: 11px; }
 
-.empty-state { text-align: center; padding: 48px 20px; color: var(--gray-400); font-size: 13.5px; }
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 13.5px; }
 
 /* ---------- Ikon aksi tabel (tombol bulat kecil) ---------- */
 .icon-btn {
@@ -850,7 +855,7 @@ table tbody tr:hover { background: var(--gray-50); }
   display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
   animation: modalBackdropIn 0.15s ease;
 }
-.modal-box { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: modalBoxIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.modal-box { background: var(--surface); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 440px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; box-shadow: var(--shadow-lg); animation: modalBoxIn 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
 .modal-box h3 { font-weight: 800; color: var(--gray-900); }
 
 /* ---------- Login page ---------- */
@@ -924,4 +929,85 @@ table tbody tr:hover { background: var(--gray-50); }
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ==========================================================================
+   Perbaikan UI/UX HP (poin 3, 4, 7): kartu pesanan, target sentuh, toast
+   ========================================================================== */
+.oc-qty-inline { display: none; }
+
+/* Toast: posisi diatur di sini (bukan inline) supaya di HP naik di atas bottom nav */
+#app-toast { bottom: 20px; }
+
+@media (max-width: 860px) {
+  #app-toast { bottom: calc(var(--bottom-nav-height) + 12px); }
+
+  /* Target sentuh minimal 40px */
+  .icon-btn { width: 40px; height: 40px; }
+  .btn-sm,
+  .page-header-actions .btn-sm {
+    min-height: 40px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Daftar pesanan: tiap pesanan jadi satu kartu, tanpa geser ke samping */
+  #order-list .order-table-wrap { max-height: none; overflow: visible; }
+  #order-list .order-table,
+  #order-list .order-table thead,
+  #order-list .order-table tbody { display: block; font-size: 13px; }
+
+  /* Header tabel tinggal jadi baris kontrol: pilih semua + urut Nota/Tanggal + urut Total */
+  #order-list .order-table thead tr {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 12px; border-bottom: 1px solid var(--gray-200);
+  }
+  #order-list .order-table thead th { display: none; padding: 0; border: 0; }
+  #order-list .order-table thead th.oh-keep {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 40px; padding: 6px 12px; font-size: 12px;
+    border: 1px solid var(--gray-200); border-radius: 8px;
+    text-align: left !important; text-transform: none; letter-spacing: 0;
+  }
+  #order-list .order-table thead th.oh-keep br { display: none; }
+
+  #order-list .order-table tbody tr {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "sel nota    total"
+      "sel pemesan bayar"
+      "sel cabang  cabang"
+      "sel produk  produk"
+      "sel ambil   aksi";
+    column-gap: 8px; row-gap: 8px;
+    align-items: start;
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  #order-list .order-table tbody tr:last-child { border-bottom: 0; }
+  #order-list .order-table td {
+    display: block; padding: 0; border: 0;
+    min-width: 0 !important; white-space: normal !important;
+    text-align: left;
+  }
+  #order-list .order-table td.oc-sel { grid-area: sel; text-align: center; }
+  #order-list .order-table td.oc-nota { grid-area: nota; }
+  #order-list .order-table td.oc-cabang { grid-area: cabang; }
+  #order-list .order-table td.oc-pemesan { grid-area: pemesan; }
+  #order-list .order-table td.oc-produk { grid-area: produk; }
+  #order-list .order-table td.oc-qty { display: none; }
+  #order-list .order-table td.oc-total { grid-area: total; text-align: right; }
+  #order-list .order-table td.oc-bayar { grid-area: bayar; justify-self: end; }
+  #order-list .order-table td.oc-ambil { grid-area: ambil; align-self: center; }
+  #order-list .order-table td.oc-aksi { grid-area: aksi; justify-self: end; align-self: center; }
+  #order-list .oc-qty-inline { display: inline; font-weight: 700; color: var(--gray-700); }
+
+  /* Header halaman: tombol aksi boleh turun ke baris baru kalau tidak muat
+     (sebelumnya nowrap -> Dashboard melebar 573px di layar 390px, harus geser samping) */
+  .page-header-row { flex-wrap: wrap; }
+  .page-header-actions { flex-shrink: 1; flex-wrap: wrap; }
 }

@@ -178,7 +178,7 @@ function renderUsers() {
                 <td>@${escapeHtml(u.username)}</td>
                 <td>
                   <span class="badge ${ROLE_BADGE[u.role] || "badge-gray"}">${roleLabel(u.role)}</span>
-                  ${u.role === "karyawan" ? `<div style="font-size:11px; color:var(--gray-400); margin-top:2px;">${escapeHtml(cabangNamaUser(u.cabang_id))}</div>` : ""}
+                  ${u.role === "karyawan" ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px;">${escapeHtml(cabangNamaUser(u.cabang_id))}</div>` : ""}
                 </td>
                 <td><span class="badge ${u.is_active !== false ? "badge-green" : "badge-red"}">${u.is_active !== false ? "Aktif" : "Nonaktif"}</span></td>
                 ${

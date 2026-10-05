@@ -127,7 +127,7 @@ function showSessionKickedModal() {
   const div = document.createElement("div");
   div.innerHTML = `
     <div class="modal-backdrop" style="display:flex;">
-      <div class="modal-box" style="max-width:380px; text-align:center;">
+      <div class="modal-box" role="dialog" aria-modal="true" style="max-width:380px; text-align:center;">
         <i class="ph-bold ph-warning-circle" style="font-size:34px; color:var(--red-600);"></i>
         <h3 style="margin:12px 0 6px;">Sesi Anda Diakhiri</h3>
         <p style="color:var(--gray-500); font-size:13.5px; margin:0;">Akun ini baru saja login dari perangkat lain.</p>

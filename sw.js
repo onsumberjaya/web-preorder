@@ -29,7 +29,7 @@
 // PERNAH membuka halaman itu sekali pun secara online (baru akan ikut
 // ke-cache begitu berhasil diambil dari jaringan) -- bukan "selalu gagal"
 // tapi tetap lebih baik langsung tersedia dari awal.
-const CACHE_VERSION = "v5"; // v5: + dashboard-kelola.html, dashboard-prefs.js, dashboard-statistik.js, dashboard-kelola.js (v4: + pengeluaran.html, laporan-keuangan.html)
+const CACHE_VERSION = "v6"; // v6: perbaikan UI HP + lazy-load library ekspor (v5: + dashboard-kelola.html, dashboard-prefs.js, dashboard-statistik.js, dashboard-kelola.js (v4: + pengeluaran.html, laporan-keuangan.html))
 const CACHE_NAME = `benih-preorder-shell-${CACHE_VERSION}`;
 
 const APP_SHELL_FILES = [
@@ -116,8 +116,12 @@ self.addEventListener("fetch", (event) => {
         // Berhasil dari jaringan -- simpan salinan terbaru ke cache supaya
         // kalau nanti offline, yang tersedia adalah versi paling baru yang
         // pernah berhasil diambil (bukan cuma versi saat instalasi awal).
-        const resClone = networkRes.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+        // Hanya respons sukses yang disimpan: kalau 404/500 ikut tersimpan,
+        // saat offline yang disajikan justru halaman error itu.
+        if (networkRes.ok) {
+          const resClone = networkRes.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+        }
         return networkRes;
       })
       .catch(() =>
@@ -125,7 +129,14 @@ self.addEventListener("fetch", (event) => {
         // ada di cache (mis. halaman yang belum pernah dibuka sebelumnya),
         // fallback ke index.html supaya minimal tidak muncul error browser
         // polos "tidak ada koneksi" tanpa konteks apa-apa.
-        caches.match(req).then((cached) => cached || caches.match("index.html"))
+        // ignoreSearch: berkas app shell tersimpan tanpa "?v=11", sedangkan halaman memintanya dengan "?v=11".
+        caches.match(req, { ignoreSearch: true }).then((cached) => {
+          if (cached) return cached;
+          // index.html hanya masuk akal untuk membuka halaman; untuk file .js/.css
+          // yang gagal diambil, browser malah error "Unexpected token <".
+          if (req.mode === "navigate") return caches.match("index.html");
+          return Response.error();
+        })
       )
   );
 });
